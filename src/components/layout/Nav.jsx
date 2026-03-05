@@ -13,7 +13,7 @@ const TABS = [
   { id: 'browser',   label: 'Browser',  icon: '🌐' },
 ];
 
-export default function Nav({ tab, setTab, unread, actAgents, showNotif, setShowNotif, setNotifs, setShowCmd, timer, fmtTimer, profile }) {
+export default function Nav({ tab, setTab, unread, actAgents, showNotif, setShowNotif, setNotifs, setShowCmd, timer, fmtTimer, profile, updateAvailable }) {
   function handleNotif() {
     setShowNotif(p => !p);
     setNotifs(p => p.map(n => ({ ...n, read: true })));
@@ -73,6 +73,28 @@ export default function Nav({ tab, setTab, unread, actAgents, showNotif, setShow
           <Dot status="active" />
           {actAgents.length} LIVE
         </span>
+
+        <button
+          className={`nav-icon-btn${tab === 'wiki' ? ' nav-icon-btn--active' : ''}`}
+          onClick={() => setTab('wiki')}
+          aria-label="Wiki / Help"
+          title="Wiki"
+        >
+          ?
+        </button>
+
+        <button
+          className={`nav-icon-btn${tab === 'updates' ? ' nav-icon-btn--active' : ''}${updateAvailable ? ' nav-icon-btn--update' : ''}`}
+          onClick={() => setTab('updates')}
+          aria-label={updateAvailable ? 'Update available' : 'Updates & Changelog'}
+          title="Updates"
+          style={{ position: 'relative' }}
+        >
+          🔄
+          {updateAvailable && (
+            <span className="nav-update-dot" aria-hidden="true"/>
+          )}
+        </button>
 
         <button
           className={`nav-icon-btn${tab === 'settings' ? ' nav-icon-btn--active' : ''}`}

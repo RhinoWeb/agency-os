@@ -3,6 +3,7 @@ import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync } from 'fs';
+import { execSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -149,6 +150,61 @@ app.post('/api/test-key', async (req, res) => {
     res.json({ ok: testRes.ok, status: testRes.status });
   } catch (err) {
     res.json({ ok: false, error: err.message });
+  }
+});
+
+// ── Version & update system ───────────────────────────────────
+const LOCAL_VERSION = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf8')).version;
+let   cachedLatest  = null;
+let   cacheTime     = 0;
+
+async function getLatestRelease() {
+  const now = Date.now();
+  if (cachedLatest && now - cacheTime < 3600_000) return cachedLatest; // cache 1h
+  try {
+    const r    = await fetch('https://api.github.com/repos/RhinoWeb/agency-os/releases/latest', {
+      headers: { 'User-Agent': 'agency-os-updater/1.0', 'Accept': 'application/vnd.github.v3+json' },
+    });
+    if (!r.ok) return null;
+    const data = await r.json();
+    cachedLatest = { version: data.tag_name?.replace(/^v/, ''), body: data.body ?? '', publishedAt: data.published_at, url: data.html_url };
+    cacheTime = now;
+    return cachedLatest;
+  } catch { return null; }
+}
+
+function compareVersions(a, b) {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] ?? 0) > (pb[i] ?? 0)) return 1;
+    if ((pa[i] ?? 0) < (pb[i] ?? 0)) return -1;
+  }
+  return 0;
+}
+
+app.get('/api/version', async (req, res) => {
+  const latest  = await getLatestRelease();
+  const latestV = latest?.version ?? LOCAL_VERSION;
+  res.json({
+    current:         LOCAL_VERSION,
+    latest:          latestV,
+    updateAvailable: compareVersions(latestV, LOCAL_VERSION) > 0,
+    releaseNotes:    latest?.body ?? '',
+    releaseUrl:      latest?.url  ?? '',
+    publishedAt:     latest?.publishedAt ?? null,
+  });
+});
+
+app.post('/api/apply-update', (req, res) => {
+  try {
+    execSync('git pull origin main', { stdio: 'pipe', timeout: 30000 });
+    execSync('npm install --silent', { stdio: 'pipe', timeout: 120000 });
+    res.json({ ok: true, message: 'Update applied. Please restart Agency OS (Ctrl+C → npm run dev).' });
+    // Exit after 2s so the user can see the response, then process manager restarts
+    setTimeout(() => process.exit(0), 2000);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.stderr?.toString() ?? err.message });
   }
 });
 

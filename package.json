@@ -1,6 +1,6 @@
 {
-  "name": "agency-os-v4",
-  "version": "4.0.0",
+  "name": "agency-os",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"node server.js\" \"vite --port 5173\"",

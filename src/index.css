@@ -692,6 +692,16 @@ main { flex: 1; }
 }
 .nav-icon-btn:hover         { border-color: var(--border2); color: var(--dim); }
 .nav-icon-btn--active       { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.nav-icon-btn--update       { border-color: var(--yellow); }
+.nav-update-dot {
+  position: absolute;
+  top: -3px; right: -3px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--yellow);
+  border: 2px solid var(--bg);
+  animation: browser-pulse 2s ease-in-out infinite;
+}
 
 .nav-avatar-btn {
   width: 34px;

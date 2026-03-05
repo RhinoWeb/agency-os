@@ -20,6 +20,8 @@ import AIBrain           from './views/AIBrain.jsx';
 import Settings          from './views/Settings.jsx';
 import Profile           from './views/Profile.jsx';
 import WebBrowser        from './views/WebBrowser.jsx';
+import Wiki              from './views/Wiki.jsx';
+import Updates           from './views/Updates.jsx';
 
 function fmtTimer(s) {
   return [
@@ -51,7 +53,8 @@ export default function App() {
   const [showNotif,  setShowNotif]  = useState(false);
   const [showCmd,    setShowCmd]    = useState(false);
   const [modal,      setModal]      = useState(null);
-  const [timer,      setTimer]      = useState({ on: false, tid: null, sec: 0 });
+  const [timer,         setTimer]         = useState({ on: false, tid: null, sec: 0 });
+  const [updateAvailable, setUpdateAvailable] = useState(false);
   const timerRef = useRef(null);
 
   // ── Clock ────────────────────────────────────────────────
@@ -86,6 +89,14 @@ export default function App() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  // ── Update check ─────────────────────────────────────────
+  useEffect(() => {
+    const check = () => fetch('/api/version').then(r => r.json()).then(d => { if (d.updateAvailable) setUpdateAvailable(true); }).catch(() => {});
+    check();
+    const id = setInterval(check, 3_600_000); // re-check every hour
+    return () => clearInterval(id);
   }, []);
 
   // ── Theme ────────────────────────────────────────────────
@@ -220,6 +231,7 @@ export default function App() {
         timer={timer}
         fmtTimer={fmtTimer}
         profile={profile}
+        updateAvailable={updateAvailable}
       />
 
       {showNotif && <Notifications notifs={notifs} />}
@@ -241,6 +253,8 @@ export default function App() {
         {tab === 'settings'  && <Settings settings={settings} setSettings={setSettings} onResetAll={onResetAll} />}
         {tab === 'profile'   && <Profile  profile={profile} setProfile={setProfile} agents={agents} clients={clients} allTasks={allTasks} mrr={mrr} />}
         {tab === 'browser'   && <WebBrowser settings={settings} />}
+        {tab === 'wiki'      && <Wiki />}
+        {tab === 'updates'   && <Updates />}
       </main>
     </div>
   );
