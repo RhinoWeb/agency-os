@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { usePersistedState } from './hooks/usePersistedState.js';
-import { seedAgents, seedColumns, seedWorkflows, seedClients, seedPages, seedNotifications } from './data.js';
+import { seedAgents, seedColumns, seedWorkflows, seedClients, seedLeads, seedCampaigns, seedPages, seedNotifications, seedSchedule } from './data.js';
+import OnboardingWizard from './components/layout/OnboardingWizard.jsx';
 import { THEMES, DEFAULT_SETTINGS, DEFAULT_PROFILE } from './theme.js';
 
 import Nav               from './components/layout/Nav.jsx';
@@ -22,6 +23,8 @@ import Profile           from './views/Profile.jsx';
 import WebBrowser        from './views/WebBrowser.jsx';
 import Wiki              from './views/Wiki.jsx';
 import Updates           from './views/Updates.jsx';
+import LeadFinder        from './views/LeadFinder.jsx';
+import Campaigns         from './views/Campaigns.jsx';
 
 function fmtTimer(s) {
   return [
@@ -47,14 +50,20 @@ export default function App() {
   ]);
   const [settings,  setSettings]  = usePersistedState('aos-settings',  DEFAULT_SETTINGS);
   const [profile,   setProfile]   = usePersistedState('aos-profile',   DEFAULT_PROFILE);
+  const [schedule,   setSchedule]   = usePersistedState('aos-schedule',    seedSchedule);
+  const [leads,      setLeads]      = usePersistedState('aos-leads',       seedLeads);
+  const [campaigns,  setCampaigns]  = usePersistedState('aos-campaigns',   seedCampaigns);
+  const [apifyRuns,  setApifyRuns]  = usePersistedState('aos-apify-runs',  []);
+  const [setupDone,  setSetupDone]  = usePersistedState('aos-setup-done',  false);
 
   // ── Ephemeral UI state ───────────────────────────────────
-  const [clock,      setClock]      = useState('');
-  const [showNotif,  setShowNotif]  = useState(false);
-  const [showCmd,    setShowCmd]    = useState(false);
-  const [modal,      setModal]      = useState(null);
-  const [timer,         setTimer]         = useState({ on: false, tid: null, sec: 0 });
+  const [clock,           setClock]           = useState('');
+  const [showNotif,       setShowNotif]       = useState(false);
+  const [showCmd,         setShowCmd]         = useState(false);
+  const [modal,           setModal]           = useState(null);
+  const [timer,           setTimer]           = useState({ on: false, tid: null, sec: 0 });
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [serverOnline,    setServerOnline]    = useState(true);
   const timerRef = useRef(null);
 
   // ── Clock ────────────────────────────────────────────────
@@ -91,11 +100,14 @@ export default function App() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  // ── Update check ─────────────────────────────────────────
+  // ── Update check + server health ─────────────────────────
   useEffect(() => {
-    const check = () => fetch('/api/version').then(r => r.json()).then(d => { if (d.updateAvailable) setUpdateAvailable(true); }).catch(() => {});
+    const check = () => fetch('/api/version')
+      .then(r => r.json())
+      .then(d => { setServerOnline(true); if (d.updateAvailable) setUpdateAvailable(true); })
+      .catch(() => setServerOnline(false));
     check();
-    const id = setInterval(check, 3_600_000); // re-check every hour
+    const id = setInterval(check, 3_600_000);
     return () => clearInterval(id);
   }, []);
 
@@ -187,6 +199,16 @@ export default function App() {
     }
   }
 
+  function deleteTask(tid) {
+    setColumns(p => {
+      const next = {};
+      for (const [k, col] of Object.entries(p)) {
+        next[k] = { ...col, items: col.items.filter(t => t.id !== tid) };
+      }
+      return next;
+    });
+  }
+
   // ── Data reset handler ───────────────────────────────────
   function onResetAll(target) {
     if (target === 'ai')    setAiMsgs([{ role: 'system', text: 'Conversation cleared.' }]);
@@ -209,9 +231,10 @@ export default function App() {
   const shared = {
     agents, setAgents, columns, setColumns, workflows, setWorkflows,
     clients, setClients, pages, setPages, notifs, setNotifs,
+    leads, setLeads, campaigns, setCampaigns, apifyRuns, setApifyRuns,
     allTasks, actAgents, mrr, clock,
     timer, startTimer, fmtTimer,
-    toggleAgent, moveTask, addTask, toggleSub,
+    toggleAgent, moveTask, addTask, toggleSub, deleteTask,
     aiMsgs, setAiMsgs,
     settings,
     setTab, setModal,
@@ -232,12 +255,23 @@ export default function App() {
         fmtTimer={fmtTimer}
         profile={profile}
         updateAvailable={updateAvailable}
+        serverOnline={serverOnline}
       />
 
       {showNotif && <Notifications notifs={notifs} />}
       {showCmd   && <CommandPalette setTab={setTab} setShowCmd={setShowCmd} setModal={setModal} />}
       {modal?.type === 'newTask' && (
         <TaskModal agents={agents} columns={columns} onAdd={addTask} onClose={() => setModal(null)} />
+      )}
+      {!setupDone && (
+        <OnboardingWizard
+          settings={settings}
+          setSettings={setSettings}
+          profile={profile}
+          setProfile={setProfile}
+          onComplete={() => setSetupDone(true)}
+          onResetAll={onResetAll}
+        />
       )}
 
       <main id="main-content" tabIndex={-1}>
@@ -247,11 +281,13 @@ export default function App() {
         {tab === 'workflows' && <Workflows  {...shared} />}
         {tab === 'analytics' && <Analytics  {...shared} />}
         {tab === 'clients'   && <Clients    {...shared} />}
-        {tab === 'schedule'  && <Schedule   />}
+        {tab === 'schedule'  && <Schedule schedule={schedule} setSchedule={setSchedule} />}
         {tab === 'knowledge' && <KnowledgeBase {...shared} />}
         {tab === 'ai'        && <AIBrain    {...shared} />}
-        {tab === 'settings'  && <Settings settings={settings} setSettings={setSettings} onResetAll={onResetAll} />}
+        {tab === 'settings'  && <Settings settings={settings} setSettings={setSettings} onResetAll={onResetAll} clients={clients} columns={columns} />}
         {tab === 'profile'   && <Profile  profile={profile} setProfile={setProfile} agents={agents} clients={clients} allTasks={allTasks} mrr={mrr} />}
+        {tab === 'leads'     && <LeadFinder leads={leads} setLeads={setLeads} campaigns={campaigns} apifyRuns={apifyRuns} setApifyRuns={setApifyRuns} clients={clients} setClients={setClients} setTab={setTab} />}
+        {tab === 'campaigns' && <Campaigns campaigns={campaigns} setCampaigns={setCampaigns} leads={leads} setLeads={setLeads} agents={agents} />}
         {tab === 'browser'   && <WebBrowser settings={settings} />}
         {tab === 'wiki'      && <Wiki />}
         {tab === 'updates'   && <Updates />}

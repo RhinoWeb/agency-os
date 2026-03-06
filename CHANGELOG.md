@@ -5,6 +5,40 @@ Format: [Semantic Versioning](https://semver.org/) — Added / Changed / Fixed /
 
 ---
 
+## [1.0.2] — 2026-03-06 🔑 Tool Vault
+
+### Added
+- **Tool Vault** — New Settings section (🔑) with 45 marketing tool API keys across 6 color-coded categories: AI Models (Gemini, Grok, Mistral, Perplexity), Image & Video (Stability AI, Runway, HeyGen, Synthesia, Leonardo, Ideogram, Kling, Luma, Pika, Descript, Higgsfield), Voice & Audio (ElevenLabs, Murf, PlayHT, Bland AI, Vapi, Retell, Deepgram, AssemblyAI, Cartesia), Content & SEO (Jasper, Copy.ai, Surfer SEO, Semrush, AdCreative.ai, Taplio), Outreach (Instantly, Smartlead, Clay, Phantom Buster, Apollo, Million Verifier, Refonic), Automation (Make, Zapier, Voiceflow, ManyChat, HubSpot, Triple Whale, Facebook Ads API, MCPHub)
+- **Search & category filter** in Tool Vault — instant filtering by tool name or category with tab pills
+- **Show/hide + copy-to-clipboard** on every tool key row
+- **Live configured count badge** on the Tool Vault nav item (e.g. "5")
+- **"✓ set" indicator** per row when a key is entered
+- **"Get key →" link** on every tool pointing to its API/dashboard page
+- Wiki → Settings section updated with full Tool Vault documentation and tool table
+- PRODUCT.md Settings module description updated
+
+### Technical
+- `toolKeys: {}` added to `DEFAULT_SETTINGS` in `theme.js`
+- `setToolKey()` function in Settings.jsx merges keys into `settings.toolKeys`
+- `ToolKeyRow` compact component — show/hide password input, clipboard copy, category color left-border
+- `TOOL_CATS` and `TOOL_VAULT` arrays define all 45 tools with id, category, icon, label, placeholder, docsUrl
+- Tool Vault rendered via IIFE pattern inside the `section === 'tools'` block
+- Fully backward-compatible — existing users without `toolKeys` in localStorage handled via `?? {}`
+
+---
+
+## [1.0.1] — 2026-03-06 🎯 Creator & Outreach Layer
+
+### Added
+- **AI Brain — Outreach & Growth category** — 10 new prompts: cold DM scripts, creator beta invite, re-engagement, referral ask, onboarding sequence, commission boost announcement, event invite, week-one activation nudge, KOL campaign funnel plan, creator campaign report. Library now 60 prompts across 6 categories.
+- **Creator/KOL client sub-type** — New client type with platform, niche, followers, commission rate, referral link, onboarding stage, first sale date, and revenue generated fields. Shown as a dedicated panel in the client detail view.
+- **Client type badges** — All clients now display their type (Brand, SaaS, Creator/KOL, Retreat) as color-coded badges in the client list and detail view.
+- **Outreach funnel progress bar** — Pipeline clients now show a 5-stage funnel indicator (Outreach → Replied → Call Booked → Proposal → Closed) directly on their client card.
+- **3 pre-built workflow templates** — "Influencer Launch Campaign", "Cold Outreach Sprint", and "Content Campaign Launch" now appear in the Workflows tab under a dedicated Templates section with a "Use Template" action.
+- **PRODUCT.md roadmap** — v1.1 roadmap updated to include creator client type, outreach pipeline view, campaign KPI widget, and workflow templates.
+
+---
+
 ## [1.0.0] — 2026-03-05 🚀 Initial Release
 
 ### Added

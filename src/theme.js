@@ -107,6 +107,8 @@ export const DEFAULT_SETTINGS = {
   notifAgents:   true,
   notifClients:  true,
   notifSummary:  false,
+  // Tool Vault — API keys for all other marketing tools
+  toolKeys: {},
 };
 
 export const DEFAULT_PROFILE = {

@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -415,6 +415,460 @@ app.post('/api/ai-browse', async (req, res) => {
   } catch (err) {
     send({ type: 'error', text: err.message });
     res.end();
+  }
+});
+
+// ── Google Calendar OAuth ─────────────────────────────────────
+const GCAL_TOKEN_PATH = join(__dirname, '.gcal-token.json');
+const GCAL_SCOPES     = 'https://www.googleapis.com/auth/calendar.readonly';
+const GCAL_AUTH_URL   = 'https://accounts.google.com/o/oauth2/v2/auth';
+const GCAL_TOKEN_URL  = 'https://oauth2.googleapis.com/token';
+const GCAL_EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+
+function loadGcalToken() {
+  try { return existsSync(GCAL_TOKEN_PATH) ? JSON.parse(readFileSync(GCAL_TOKEN_PATH, 'utf8')) : null; }
+  catch { return null; }
+}
+function saveGcalToken(token) {
+  writeFileSync(GCAL_TOKEN_PATH, JSON.stringify(token), 'utf8');
+}
+
+async function refreshGcalToken(token) {
+  const clientId     = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  if (!clientId || !clientSecret || !token.refresh_token) return null;
+  const r = await fetch(GCAL_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id:     clientId,
+      client_secret: clientSecret,
+      refresh_token: token.refresh_token,
+      grant_type:    'refresh_token',
+    }),
+  });
+  if (!r.ok) return null;
+  const d = await r.json();
+  const refreshed = { ...token, access_token: d.access_token, expires_at: Date.now() + d.expires_in * 1000 };
+  saveGcalToken(refreshed);
+  return refreshed;
+}
+
+async function getValidGcalToken() {
+  let token = loadGcalToken();
+  if (!token) return null;
+  if (token.expires_at && Date.now() > token.expires_at - 60_000) {
+    token = await refreshGcalToken(token);
+  }
+  return token;
+}
+
+// Step 1: redirect browser to Google consent page
+app.get('/api/gcal/auth', (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) return res.status(503).send('GOOGLE_CLIENT_ID not set in .env');
+  const redirectUri = `http://localhost:${PORT}/api/gcal/callback`;
+  const params = new URLSearchParams({
+    client_id:     clientId,
+    redirect_uri:  redirectUri,
+    response_type: 'code',
+    scope:         GCAL_SCOPES,
+    access_type:   'offline',
+    prompt:        'consent',
+  });
+  res.redirect(`${GCAL_AUTH_URL}?${params}`);
+});
+
+// Step 2: Google redirects here with ?code=
+app.get('/api/gcal/callback', async (req, res) => {
+  const { code, error } = req.query;
+  if (error || !code) return res.send(`<script>window.close();</script><p>Auth failed: ${error ?? 'no code'}</p>`);
+
+  const clientId     = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const redirectUri  = `http://localhost:${PORT}/api/gcal/callback`;
+
+  try {
+    const r = await fetch(GCAL_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, grant_type: 'authorization_code' }),
+    });
+    if (!r.ok) throw new Error(`Token exchange failed: ${r.status}`);
+    const d = await r.json();
+    saveGcalToken({ access_token: d.access_token, refresh_token: d.refresh_token, expires_at: Date.now() + d.expires_in * 1000 });
+    // Close the popup and reload parent
+    res.send('<script>if(window.opener){window.opener.postMessage("gcal-connected","*");window.close();}else{window.location="http://localhost:5173";}</script>Connected! You can close this window.');
+  } catch (err) {
+    res.send(`<p>Error: ${err.message}</p>`);
+  }
+});
+
+// Check connection status
+app.get('/api/gcal/status', (req, res) => {
+  const token = loadGcalToken();
+  res.json({ connected: !!token });
+});
+
+// Fetch today's events
+app.get('/api/gcal/events', async (req, res) => {
+  const token = await getValidGcalToken();
+  if (!token) return res.status(401).json({ error: 'Not connected to Google Calendar' });
+
+  const now       = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+  const endOfDay   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
+
+  try {
+    const r = await fetch(
+      `${GCAL_EVENTS_URL}?timeMin=${startOfDay}&timeMax=${endOfDay}&singleEvents=true&orderBy=startTime&maxResults=25`,
+      { headers: { Authorization: `Bearer ${token.access_token}` } }
+    );
+    if (!r.ok) throw new Error(`Google API error: ${r.status}`);
+    const data = await r.json();
+
+    const events = (data.items ?? []).map(ev => {
+      const start = ev.start?.dateTime ?? ev.start?.date;
+      const end   = ev.end?.dateTime   ?? ev.end?.date;
+      const d     = start ? new Date(start) : null;
+      const h     = d ? d.getHours()   : 0;
+      const m     = d ? d.getMinutes() : 0;
+      const ampm  = h >= 12 ? 'PM' : 'AM';
+      const h12   = ((h % 12) || 12);
+      const durMs = d && end ? new Date(end) - d : 3600000;
+      return {
+        id:     `gcal-${ev.id}`,
+        title:  ev.summary ?? '(No title)',
+        time:   d ? `${h12}:${String(m).padStart(2,'0')} ${ampm}` : 'All day',
+        _sort:  h * 60 + m,
+        dur:    Math.round(durMs / 60000) || 60,
+        type:   'meeting',
+        cl:     '#4285F4',
+        source: 'google',
+        hangoutLink: ev.hangoutLink ?? null,
+        location: ev.location ?? null,
+      };
+    });
+    res.json({ events });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Disconnect
+app.post('/api/gcal/disconnect', (req, res) => {
+  try {
+    if (existsSync(GCAL_TOKEN_PATH)) writeFileSync(GCAL_TOKEN_PATH, '', 'utf8');
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// ── APIFY routes ───────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+
+const APIFY_BASE = 'https://api.apify.com/v2';
+
+// Run an actor
+app.post('/api/apify/run', async (req, res) => {
+  const key = process.env.APIFY_API_KEY;
+  if (!key) return res.status(400).json({ error: 'APIFY_API_KEY not set' });
+  const { actorId, input } = req.body;
+  if (!actorId) return res.status(400).json({ error: 'actorId required' });
+  try {
+    const r = await fetch(`${APIFY_BASE}/acts/${encodeURIComponent(actorId)}/runs?token=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input ?? {}),
+    });
+    const d = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: d.error?.message ?? 'Apify error' });
+    res.json({ runId: d.data.id, status: d.data.status, actorId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Poll run status
+app.get('/api/apify/status/:runId', async (req, res) => {
+  const key = process.env.APIFY_API_KEY;
+  if (!key) return res.status(400).json({ error: 'APIFY_API_KEY not set' });
+  try {
+    const r = await fetch(`${APIFY_BASE}/actor-runs/${req.params.runId}?token=${key}`);
+    const d = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: d.error?.message ?? 'Apify error' });
+    res.json({ status: d.data.status, datasetId: d.data.defaultDatasetId, stats: d.data.stats });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Fetch dataset results
+app.get('/api/apify/results/:datasetId', async (req, res) => {
+  const key = process.env.APIFY_API_KEY;
+  if (!key) return res.status(400).json({ error: 'APIFY_API_KEY not set' });
+  const limit = Math.min(Number(req.query.limit ?? 200), 500);
+  try {
+    const r = await fetch(`${APIFY_BASE}/datasets/${req.params.datasetId}/items?token=${key}&limit=${limit}&clean=true`);
+    const items = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: 'Apify dataset error' });
+    res.json({ items, count: items.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Normalize raw Apify items to lead schema
+app.post('/api/apify/normalize', async (req, res) => {
+  const { items } = req.body;
+  if (!Array.isArray(items)) return res.status(400).json({ error: 'items array required' });
+
+  const leads = items.map((item, i) => ({
+    id:          `l-apify-${Date.now()}-${i}`,
+    name:        item.fullName ?? item.name ?? `${item.firstName ?? ''} ${item.lastName ?? ''}`.trim() ?? 'Unknown',
+    company:     item.companyName ?? item.company ?? '',
+    title:       item.jobTitle ?? item.title ?? item.headline ?? '',
+    email:       item.email ?? '',
+    linkedIn:    item.linkedInUrl ?? item.profileUrl ?? '',
+    status:      'lead',
+    source:      'apify',
+    leadScore:   Math.floor(Math.random() * 30) + 50, // scored by AI later
+    industry:    item.industry ?? '',
+    employees:   item.companySize ?? item.employees ?? '',
+    location:    item.location ?? item.city ?? '',
+    campaignId:  null,
+    sequenceStep: 0,
+    replyStatus: 'none',
+    notes:       '',
+    since:       new Date().toISOString().split('T')[0],
+    color:       '#00FFB2',
+  }));
+
+  res.json({ leads, count: leads.length });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// ── INSTANTLY routes ───────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+
+const INSTANTLY_BASE = 'https://api.instantly.ai/api/v1';
+
+// Create a campaign
+app.post('/api/instantly/campaign', async (req, res) => {
+  const key = process.env.INSTANTLY_API_KEY;
+  if (!key) return res.status(400).json({ error: 'INSTANTLY_API_KEY not set' });
+  const { name, sequence } = req.body;
+  if (!name || !sequence) return res.status(400).json({ error: 'name and sequence required' });
+  try {
+    const r = await fetch(`${INSTANTLY_BASE}/campaign/create?api_key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email_list: [], sequences: [{ steps: sequence }] }),
+    });
+    const d = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: d.message ?? 'Instantly error' });
+    res.json({ campaignId: d.id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add leads to campaign
+app.post('/api/instantly/leads', async (req, res) => {
+  const key = process.env.INSTANTLY_API_KEY;
+  if (!key) return res.status(400).json({ error: 'INSTANTLY_API_KEY not set' });
+  const { campaignId, leads } = req.body;
+  if (!campaignId || !Array.isArray(leads)) return res.status(400).json({ error: 'campaignId and leads[] required' });
+  try {
+    const r = await fetch(`${INSTANTLY_BASE}/lead/add?api_key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaign_id: campaignId, leads: leads.map(l => ({
+        email:      l.email,
+        first_name: l.name?.split(' ')[0] ?? '',
+        last_name:  l.name?.split(' ').slice(1).join(' ') ?? '',
+        company_name: l.company ?? '',
+        personalization: l.notes ?? '',
+        custom_variables: { title: l.title ?? '', linkedin: l.linkedIn ?? '' },
+      })) }),
+    });
+    const d = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: d.message ?? 'Instantly error' });
+    res.json({ added: d.total_added ?? leads.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get campaign stats
+app.get('/api/instantly/stats/:campaignId', async (req, res) => {
+  const key = process.env.INSTANTLY_API_KEY;
+  if (!key) return res.status(400).json({ error: 'INSTANTLY_API_KEY not set' });
+  try {
+    const r = await fetch(`${INSTANTLY_BASE}/analytics/campaign/summary?api_key=${key}&campaign_id=${req.params.campaignId}`);
+    const d = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: d.message ?? 'Instantly error' });
+    res.json(d);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Webhook receiver for Instantly reply events
+app.post('/api/instantly/webhook', express.raw({ type: '*/*' }), (req, res) => {
+  // Verify HMAC if secret is set
+  const secret = process.env.INSTANTLY_WEBHOOK_SECRET;
+  if (secret) {
+    const sig = req.headers['x-instantly-signature'];
+    if (!sig) return res.status(401).json({ error: 'Missing signature' });
+    // Simple SHA256 HMAC check
+    try {
+      const crypto = await import('crypto');
+      const expected = crypto.createHmac('sha256', secret).update(req.body).digest('hex');
+      if (sig !== expected) return res.status(401).json({ error: 'Invalid signature' });
+    } catch { /* skip if crypto fails */ }
+  }
+  const event = JSON.parse(req.body.toString());
+  console.log('[Instantly webhook]', event.event_type, event.lead_email);
+  // Clients can poll /api/instantly/replies for latest — webhook just logs for now
+  res.json({ ok: true });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// ── ZOOM routes ────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+
+let _zoomToken = null;
+let _zoomTokenExpiry = 0;
+
+async function getZoomToken() {
+  if (_zoomToken && Date.now() < _zoomTokenExpiry) return _zoomToken;
+  const id     = process.env.ZOOM_CLIENT_ID;
+  const secret = process.env.ZOOM_CLIENT_SECRET;
+  const account= process.env.ZOOM_ACCOUNT_ID;
+  if (!id || !secret || !account) throw new Error('Zoom credentials not set');
+  const creds = Buffer.from(`${id}:${secret}`).toString('base64');
+  const r = await fetch(`https://zoom.us/oauth/token?grant_type=account_credentials&account_id=${account}`, {
+    method: 'POST',
+    headers: { Authorization: `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.reason ?? 'Zoom token error');
+  _zoomToken       = d.access_token;
+  _zoomTokenExpiry = Date.now() + (d.expires_in - 60) * 1000;
+  return _zoomToken;
+}
+
+// Create a Zoom meeting
+app.post('/api/zoom/meeting', async (req, res) => {
+  if (!process.env.ZOOM_CLIENT_ID) return res.status(400).json({ error: 'Zoom credentials not set' });
+  const { topic, startTime, durationMin = 30, agenda = '' } = req.body;
+  if (!topic || !startTime) return res.status(400).json({ error: 'topic and startTime required' });
+  try {
+    const token = await getZoomToken();
+    const r = await fetch('https://api.zoom.us/v2/users/me/meetings', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        topic, agenda,
+        type: 2, // scheduled
+        start_time: startTime,
+        duration: durationMin,
+        settings: { join_before_host: true, waiting_room: false },
+      }),
+    });
+    const d = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: d.message ?? 'Zoom error' });
+    res.json({ meetingId: d.id, joinUrl: d.join_url, startUrl: d.start_url, topic: d.topic });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// ── AI Sequence + Reply Classification ─────────────────────────
+// ═══════════════════════════════════════════════════════════════
+
+// Generate a 12-step cold email sequence via AI
+app.post('/api/ai/sequence', async (req, res) => {
+  const { brief, provider = 'minimax' } = req.body;
+  if (!brief) return res.status(400).json({ error: 'brief required' });
+
+  const prov = PROVIDERS[provider];
+  const key  = process.env[`${provider.toUpperCase()}_API_KEY`];
+  if (!prov || !key) return res.status(400).json({ error: `Provider ${provider} not configured` });
+
+  const prompt = `You are an expert cold email copywriter. Generate a 12-step cold email sequence as JSON.
+
+Campaign brief:
+- Offer: ${brief.offer}
+- ICP: ${brief.icp}
+- Tone: ${brief.tone ?? 'consultative'}
+- Case study: ${brief.caseStudy ?? 'none'}
+
+Return ONLY a valid JSON array with exactly 12 objects, each with:
+{ "step": number, "subject": string, "body": string, "delay": number }
+
+delay = days after previous email (step 1 is day 0).
+Keep bodies under 120 words. Use {firstName}, {company}, {industry} as variables.`;
+
+  try {
+    const r = await fetch(prov.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({
+        model: prov.defaultModel,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 2048,
+      }),
+    });
+    const d = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: d.error?.message ?? 'AI error' });
+    const text = d.choices?.[0]?.message?.content ?? '';
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) return res.status(500).json({ error: 'AI did not return valid JSON array', raw: text });
+    const sequence = JSON.parse(match[0]);
+    res.json({ sequence });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Classify a reply intent
+app.post('/api/ai/classify-reply', async (req, res) => {
+  const { replyText, provider = 'minimax' } = req.body;
+  if (!replyText) return res.status(400).json({ error: 'replyText required' });
+
+  const prov = PROVIDERS[provider];
+  const key  = process.env[`${provider.toUpperCase()}_API_KEY`];
+  if (!prov || !key) return res.status(400).json({ error: `Provider ${provider} not configured` });
+
+  const prompt = `Classify this cold email reply into ONE of: POSITIVE, NEGATIVE, NEUTRAL, UNSUBSCRIBE, REFERRAL, MAYBE_LATER.
+
+Reply: "${replyText}"
+
+Respond with ONLY a JSON object: { "intent": "POSITIVE", "confidence": 0.95, "summary": "Interested, asked for pricing" }`;
+
+  try {
+    const r = await fetch(prov.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({
+        model: prov.defaultModel,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 128,
+      }),
+    });
+    const d = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: d.error?.message ?? 'AI error' });
+    const text = d.choices?.[0]?.message?.content ?? '';
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return res.status(500).json({ error: 'AI did not return valid JSON', raw: text });
+    res.json(JSON.parse(match[0]));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

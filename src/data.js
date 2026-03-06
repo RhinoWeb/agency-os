@@ -33,33 +33,92 @@ export const seedColumns = {
 };
 
 export const seedSchedule = [
-  { time:'08:00', title:'Morning standup',              type:'meeting',   dur:30,  cl:C.yellow  },
-  { time:'09:00', title:'Content Writer — Blog batch',  type:'agent',     dur:120, cl:C.accent3 },
-  { time:'09:30', title:'Client call — Acme Corp',      type:'meeting',   dur:60,  cl:C.yellow  },
-  { time:'11:00', title:'SEO audit review',              type:'task',      dur:45,  cl:C.accent  },
-  { time:'12:00', title:'Lunch break',                  type:'break',     dur:60,  cl:C.muted   },
-  { time:'13:00', title:'Email Outreach — Campaign',    type:'agent',     dur:30,  cl:C.accent3 },
-  { time:'14:00', title:'Strategy & deep work',          type:'deep-work', dur:120, cl:C.accent2 },
-  { time:'16:00', title:'Social Bot — Schedule posts',  type:'agent',     dur:45,  cl:C.accent3 },
-  { time:'17:00', title:'End-of-day review',            type:'task',      dur:30,  cl:C.accent  },
-  { time:'17:30', title:'Report Generator — Weekly',    type:'agent',     dur:30,  cl:C.accent3 },
+  { id:'ev1',  time:'8:00 AM',  _sort:480,  title:'Morning standup',              type:'meeting',   dur:30,  cl:C.yellow  },
+  { id:'ev2',  time:'9:00 AM',  _sort:540,  title:'Content Writer — Blog batch',  type:'agent',     dur:120, cl:C.accent3 },
+  { id:'ev3',  time:'9:30 AM',  _sort:570,  title:'Client call — Acme Corp',      type:'meeting',   dur:60,  cl:C.yellow  },
+  { id:'ev4',  time:'11:00 AM', _sort:660,  title:'SEO audit review',             type:'task',      dur:45,  cl:C.accent  },
+  { id:'ev5',  time:'12:00 PM', _sort:720,  title:'Lunch break',                  type:'break',     dur:60,  cl:C.muted   },
+  { id:'ev6',  time:'1:00 PM',  _sort:780,  title:'Email Outreach — Campaign',    type:'agent',     dur:30,  cl:C.accent3 },
+  { id:'ev7',  time:'2:00 PM',  _sort:840,  title:'Strategy & deep work',         type:'deep-work', dur:120, cl:C.accent2 },
+  { id:'ev8',  time:'4:00 PM',  _sort:960,  title:'Social Bot — Schedule posts',  type:'agent',     dur:45,  cl:C.accent3 },
+  { id:'ev9',  time:'5:00 PM',  _sort:1020, title:'End-of-day review',            type:'task',      dur:30,  cl:C.accent  },
+  { id:'ev10', time:'5:30 PM',  _sort:1050, title:'Report Generator — Weekly',    type:'agent',     dur:30,  cl:C.accent3 },
 ];
 
 export const seedWorkflows = [
-  { id:'w1', name:'Blog → Social → Email Pipeline', status:'active', steps:['Content Writer drafts blog','SEO Optimizer reviews keywords','Social Bot creates posts','Email Outreach adds to newsletter'], trigger:'Manual',                lastRun:'Today 9AM', runs:23,  successRate:96  },
-  { id:'w2', name:'Weekly Client Report',            status:'active', steps:['Data Scraper pulls metrics','Report Generator compiles deck','Email Outreach sends to clients'],                            trigger:'Every Friday 5PM',        lastRun:'Last Fri',  runs:12,  successRate:100 },
-  { id:'w3', name:'Lead Nurture Sequence',           status:'active', steps:['New lead detected','Welcome email','Wait 3 days — case study','Wait 7 days — offer email'],                              trigger:'New lead signup',          lastRun:'2h ago',    runs:156, successRate:89  },
-  { id:'w4', name:'Competitor Monitor',              status:'paused', steps:['Data Scraper checks sites','SEO Optimizer compares keywords','Report Generator creates diff'],                            trigger:'Daily 6AM',               lastRun:'3d ago',    runs:45,  successRate:92  },
-  { id:'w5', name:'Content Repurpose Engine',        status:'active', steps:['Blog published trigger','Extract key quotes','Social Bot creates carousel','Social Bot creates thread','Email Outreach adds snippet'], trigger:'On blog publish', lastRun:'Yesterday', runs:8,   successRate:100 },
+  { id:'w1', name:'Blog → Social → Email Pipeline', status:'active',   isTemplate:false, steps:['Content Writer drafts blog','SEO Optimizer reviews keywords','Social Bot creates posts','Email Outreach adds to newsletter'],                                                        trigger:'Manual',             lastRun:'Today 9AM', runs:23,  successRate:96  },
+  { id:'w2', name:'Weekly Client Report',            status:'active',   isTemplate:false, steps:['Data Scraper pulls metrics','Report Generator compiles deck','Email Outreach sends to clients'],                                                                                    trigger:'Every Friday 5PM',   lastRun:'Last Fri',  runs:12,  successRate:100 },
+  { id:'w3', name:'Lead Nurture Sequence',           status:'active',   isTemplate:false, steps:['New lead detected','Welcome email','Wait 3 days — case study','Wait 7 days — offer email'],                                                                                        trigger:'New lead signup',    lastRun:'2h ago',    runs:156, successRate:89  },
+  { id:'w4', name:'Competitor Monitor',              status:'paused',   isTemplate:false, steps:['Data Scraper checks sites','SEO Optimizer compares keywords','Report Generator creates diff'],                                                                                      trigger:'Daily 6AM',          lastRun:'3d ago',    runs:45,  successRate:92  },
+  { id:'w5', name:'Content Repurpose Engine',        status:'active',   isTemplate:false, steps:['Blog published trigger','Extract key quotes','Social Bot creates carousel','Social Bot creates thread','Email Outreach adds snippet'],                                              trigger:'On blog publish',    lastRun:'Yesterday', runs:8,   successRate:100 },
+  { id:'w6', name:'Influencer Launch Campaign',      status:'template', isTemplate:true,  steps:['Add creator as new client','Send welcome + referral link','Add to onboarding group','Week 1 check-in — did they post?','First sale confirmation + celebrate','Commission report'], trigger:'New creator added',   lastRun:'—',         runs:0,   successRate:0   },
+  { id:'w7', name:'Cold Outreach Sprint',            status:'template', isTemplate:true,  steps:['Build prospect list (300 targets)','Day 1 — cold DM wave 1','Day 3 — follow-up to non-responders','Day 7 — breakup message','Tag replies → move to pipeline','Weekly funnel report'], trigger:'Manual / Weekly',  lastRun:'—',         runs:0,   successRate:0   },
+  { id:'w8', name:'Content Campaign Launch',         status:'template', isTemplate:true,  steps:['Campaign brief approved','Content Writer drafts 5 posts','SEO Optimizer adds keywords','Social Bot schedules across platforms','Email Outreach sends to subscriber list','Report Generator compiles results'], trigger:'On campaign brief', lastRun:'—', runs:0, successRate:0 },
 ];
 
 export const seedClients = [
-  { id:'c1', name:'Acme Corp',     status:'active',   mrr:12000, health:95, contact:'Sarah Chen',     email:'sarah@acme.io',           since:'Jan 2024', services:['SEO','Content','Email'],          nextMeeting:'Today 9:30AM', notes:'Q2 strategy — wants more video',                     color:C.accent  },
-  { id:'c2', name:'TechFlow',      status:'active',   mrr:8500,  health:88, contact:'James Park',     email:'james@techflow.com',      since:'Mar 2024', services:['Content','Social'],               nextMeeting:'Thu 2PM',      notes:'Case study published, upsell social ads',            color:C.accent3 },
-  { id:'c3', name:'GreenLeaf',     status:'active',   mrr:6000,  health:72, contact:'Maya Rodriguez', email:'maya@greenleaf.co',       since:'Jun 2024', services:['SEO','Email'],                    nextMeeting:'Fri 11AM',     notes:'Concerned about organic traffic dip',                color:C.green   },
-  { id:'c4', name:'Quantum Labs',  status:'active',   mrr:9200,  health:91, contact:'Alex Kim',       email:'alex@quantumlabs.io',     since:'Feb 2024', services:['Content','SEO','Social','Email'], nextMeeting:'Next Tue',     notes:'Full service — very happy, potential referral',      color:C.accent4 },
-  { id:'c5', name:'Nova Digital',  status:'pipeline', mrr:0,     health:0,  contact:'Ryan Foster',    email:'ryan@novadigital.co',     since:'—',        services:['Content','SEO'],                  nextMeeting:'Wed 3PM',      notes:'Discovery call scheduled, $7k/mo potential',        color:C.accent5 },
-  { id:'c6', name:'UrbanPulse',    status:'pipeline', mrr:0,     health:0,  contact:'Leila Torres',   email:'leila@urbanpulse.com',    since:'—',        services:['Social','Email'],                 nextMeeting:'Next Mon',     notes:'Referred by Acme Corp, warm lead',                  color:C.yellow  },
+  { id:'c1', name:'Acme Corp',     clientType:'brand',   status:'active',   mrr:12000, health:95, contact:'Sarah Chen',     email:'sarah@acme.io',           since:'Jan 2024', services:['SEO','Content','Email'],          nextMeeting:'Today 9:30AM', notes:'Q2 strategy — wants more video',                     color:C.accent  },
+  { id:'c2', name:'TechFlow',      clientType:'saas',    status:'active',   mrr:8500,  health:88, contact:'James Park',     email:'james@techflow.com',      since:'Mar 2024', services:['Content','Social'],               nextMeeting:'Thu 2PM',      notes:'Case study published, upsell social ads',            color:C.accent3 },
+  { id:'c3', name:'GreenLeaf',     clientType:'brand',   status:'active',   mrr:6000,  health:72, contact:'Maya Rodriguez', email:'maya@greenleaf.co',       since:'Jun 2024', services:['SEO','Email'],                    nextMeeting:'Fri 11AM',     notes:'Concerned about organic traffic dip',                color:C.green   },
+  { id:'c4', name:'Quantum Labs',  clientType:'saas',    status:'active',   mrr:9200,  health:91, contact:'Alex Kim',       email:'alex@quantumlabs.io',     since:'Feb 2024', services:['Content','SEO','Social','Email'], nextMeeting:'Next Tue',     notes:'Full service — very happy, potential referral',      color:C.accent4 },
+  { id:'c5', name:'Nova Digital',  clientType:'brand',   status:'pipeline', mrr:0,     health:0,  contact:'Ryan Foster',    email:'ryan@novadigital.co',     since:'—',        services:['Content','SEO'],                  nextMeeting:'Wed 3PM',      notes:'Discovery call scheduled, $7k/mo potential',        color:C.accent5, outreachStage:'call'    },
+  { id:'c6', name:'UrbanPulse',    clientType:'brand',   status:'pipeline', mrr:0,     health:0,  contact:'Leila Torres',   email:'leila@urbanpulse.com',    since:'—',        services:['Social','Email'],                 nextMeeting:'Next Mon',     notes:'Referred by Acme Corp, warm lead',                  color:C.yellow,  outreachStage:'replied' },
+  { id:'c7', name:'Maya Wellness', clientType:'creator', status:'active',   mrr:3200,  health:90, contact:'Maya Lin',       email:'maya@mayawellness.co',    since:'Feb 2026', services:['Creator Campaign','Funnel Build'], nextMeeting:'Mon 10AM',    notes:'Top Bali wellness KOL — 180k IG. Month 2 with doubled commission.',
+    color:'#EC4899',
+    creator: {
+      platform: 'Instagram',
+      niche: 'Wellness / Yoga',
+      followers: '180k',
+      commissionRate: 30,
+      referralLink: 'mayawellness.retreat-kol.com/ref',
+      onboardingStage: 'active',
+      firstSaleDate: '2026-02-14',
+      totalRevenue: 4800,
+    },
+  },
+];
+
+export const seedLeads = [
+  { id:'l1', name:'Jordan Hayes',    company:'Momentum Media',   title:'Head of Growth',       email:'jordan@momentummedia.com',  linkedIn:'linkedin.com/in/jordanhayes',    status:'prospect', source:'apify', leadScore:87, industry:'Marketing',  employees:'50-200',   location:'Austin, TX',        campaignId:null, sequenceStep:3, replyStatus:'positive', notes:'Replied to email 2, interested in SEO retainer', since:'2026-02-28', color:C.accent  },
+  { id:'l2', name:'Priya Nair',      company:'Stackwave',        title:'VP Marketing',         email:'priya@stackwave.io',        linkedIn:'linkedin.com/in/priyanair',       status:'prospect', source:'apify', leadScore:74, industry:'SaaS',       employees:'100-500',  location:'San Francisco, CA', campaignId:null, sequenceStep:5, replyStatus:'neutral',  notes:'Opened emails 4x, no reply yet',                  since:'2026-02-26', color:C.accent3 },
+  { id:'l3', name:'Marcus Bell',     company:'Elevate Brands',   title:'CMO',                  email:'marcus@elevatebrands.co',   linkedIn:'linkedin.com/in/marcusbell',      status:'lead',     source:'apify', leadScore:62, industry:'E-commerce', employees:'20-50',    location:'New York, NY',      campaignId:null, sequenceStep:1, replyStatus:'none',     notes:'Scraped from LinkedIn — agency owner niche',      since:'2026-03-01', color:C.accent2 },
+  { id:'l4', name:'Sophie Chu',      company:'CloudBase AI',     title:'Founder & CEO',        email:'sophie@cloudbaseai.com',    linkedIn:'linkedin.com/in/sophiechu',       status:'lead',     source:'apify', leadScore:91, industry:'AI/SaaS',    employees:'10-50',    location:'Seattle, WA',       campaignId:null, sequenceStep:2, replyStatus:'none',     notes:'Series A funded, scaling fast — high priority',   since:'2026-03-02', color:C.accent  },
+  { id:'l5', name:'Derek Lane',      company:'PulseCommerce',    title:'Director of Marketing', email:'derek@pulsecommerce.io',   linkedIn:'linkedin.com/in/dereklane',       status:'lead',     source:'apify', leadScore:55, industry:'E-commerce', employees:'50-200',   location:'Chicago, IL',       campaignId:null, sequenceStep:1, replyStatus:'none',     notes:'LinkedIn scrape — active poster on growth topics', since:'2026-03-03', color:C.yellow  },
+  { id:'l6', name:'Amara Osei',      company:'Zenith Fintech',   title:'Growth Lead',           email:'amara@zenithfintech.com',  linkedIn:'linkedin.com/in/amaraosei',       status:'prospect', source:'apify', leadScore:79, industry:'Fintech',    employees:'200-1000', location:'London, UK',        campaignId:null, sequenceStep:7, replyStatus:'neutral',  notes:'Asked for case studies — send fintech examples',   since:'2026-02-24', color:C.accent4 },
+  { id:'l7', name:'Tyler Ross',      company:'ClearPath SaaS',   title:'Marketing Manager',    email:'tyler@clearpathsaas.com',   linkedIn:'linkedin.com/in/tylerross',       status:'lead',     source:'apify', leadScore:48, industry:'SaaS',       employees:'10-50',    location:'Denver, CO',        campaignId:null, sequenceStep:1, replyStatus:'none',     notes:'Low score — small budget likely',                  since:'2026-03-04', color:C.muted   },
+  { id:'l8', name:'Nina Voss',       company:'Apex Digital',     title:'CEO',                  email:'nina@apexdigital.de',       linkedIn:'linkedin.com/in/ninavoss',        status:'prospect', source:'apify', leadScore:83, industry:'Marketing',  employees:'50-200',   location:'Berlin, DE',        campaignId:null, sequenceStep:4, replyStatus:'positive', notes:'Replied asking for pricing — follow up today',     since:'2026-02-27', color:C.green   },
+];
+
+export const seedCampaigns = [
+  {
+    id: 'camp1',
+    name: 'Q1 SaaS Growth Founders',
+    status: 'active',
+    createdAt: '2026-02-20',
+    leadIds: ['l2', 'l4', 'l7'],
+    instantlyCampaignId: null,
+    brief: {
+      offer: 'Full-service content + SEO retainer for SaaS companies scaling to $5M ARR',
+      icp: 'B2B SaaS founders and VPs of Marketing with 10-500 employees',
+      tone: 'consultative',
+      caseStudy: 'TechFlow grew organic traffic 240% in 6 months with our content engine',
+    },
+    sequence: [
+      { step:1,  subject:'Quick question about {company}\'s content strategy',    body:'Hey {firstName}, noticed {company} is scaling fast...',  delay:0  },
+      { step:2,  subject:'How {competitor} is beating you on Google (and how to fix it)', body:'Hi {firstName}, I pulled a quick SEO gap report...', delay:2  },
+      { step:3,  subject:'Case study: 240% traffic growth in 6 months',           body:'Hey {firstName}, thought this might be useful...',       delay:4  },
+      { step:4,  subject:'Re: {company} content strategy',                        body:'Following up on my earlier message...',                   delay:7  },
+      { step:5,  subject:'The exact content system we use for {industry} clients', body:'Hi {firstName}, wanted to share something specific...',  delay:10 },
+      { step:6,  subject:'Quick 15-min call this week?',                          body:'Hey {firstName}, I\'ll keep this short...',               delay:14 },
+      { step:7,  subject:'{firstName}, one more thing',                           body:'I know you\'re busy, so I\'ll be direct...',              delay:18 },
+      { step:8,  subject:'Different angle on {company}\'s growth',                body:'Hi {firstName}, trying a different approach...',          delay:22 },
+      { step:9,  subject:'What\'s blocking {company}\'s content ROI?',            body:'Hey {firstName}, quick question...',                      delay:28 },
+      { step:10, subject:'Results from similar {industry} companies',             body:'Hi {firstName}, compiled some benchmarks...',             delay:35 },
+      { step:11, subject:'Last thing I\'ll share with you',                       body:'Hey {firstName}, I don\'t want to clutter your inbox...',delay:42 },
+      { step:12, subject:'Closing the loop on {company}',                         body:'Hi {firstName}, closing this thread out...',              delay:50 },
+    ],
+    stats: { sent: 87, opened: 31, replied: 6, booked: 2, openRate: 36, replyRate: 7 },
+  },
 ];
 
 export const seedPages = [

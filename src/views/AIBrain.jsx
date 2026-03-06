@@ -63,6 +63,21 @@ const CATEGORIES = [
     ],
   },
   {
+    id: 'outreach', label: 'Outreach', icon: '📡', color: '#EC4899',
+    prompts: [
+      { icon:'💬', title:'Cold DM script',              desc:'High-converting creator first touch',            text:'Write a short, high-status cold DM script to reach out to a potential KOL or creator for a client campaign. The message should feel human and personalized, not salesy. Include a hook, a clear value prop (easy link, doubled commission or incentive), and a single soft CTA. Keep it under 80 words.' },
+      { icon:'🎟️', title:'Creator beta invite',         desc:'Exclusive invite for a creator partnership',     text:'Draft an exclusive "beta invite" message for a new creator or influencer partnership program we are launching for a client. Position it as invite-only, high-value, and low-effort. Include: the core offer, what makes it limited, what the creator has to do, and a single clear next step. Keep it under 100 words.' },
+      { icon:'🔁', title:'Re-engage a cold creator',    desc:'Win back a dormant partner or influencer',       text:'Write a re-engagement message for a creator or influencer who was interested in a client campaign but went cold after initial outreach. Do not be desperate. Be confident, brief, and offer a new reason to act now (e.g., a time-limited bonus, a new campaign, or fresh results from another creator). Max 70 words.' },
+      { icon:'🤝', title:'Referral ask to a partner',   desc:'Get existing partners to refer new creators',    text:'Write a message to an existing creator partner asking them to refer 2–3 other creators to a client campaign. Make the ask feel natural and social, not transactional. Include a referral incentive (bonus, extended commission, or recognition). Keep it warm, brief, and easy to forward.' },
+      { icon:'📬', title:'Creator onboarding sequence', desc:'3-message sequence from signed to first post',   text:'Write a 3-message onboarding sequence for a newly signed creator partner. Message 1: welcome + access instructions. Message 2 (24 hours later): quick win nudge — post your first link. Message 3 (48 hours later): check-in + first result celebration. Each message under 60 words. Tone: warm, confident, high-energy.' },
+      { icon:'💸', title:'Commission boost announcement', desc:'Create urgency with a time-limited incentive',  text:'Write an announcement message to an existing creator network for a client, announcing a limited-time commission increase (e.g., 15% → 30% for 30 days). Create genuine urgency without being pushy. Include: the exact offer, the deadline, why now, and a simple CTA. Keep it under 100 words.' },
+      { icon:'🎪', title:'Creator event invite',         desc:'In-person activation or online launch invite',   text:'Write an event invite for a creator dinner, launch meetup, or live online event for a client campaign. Include: event name, vibe, date/location (or online platform), what attendees will get, and a RSVP CTA. Make it feel exclusive and exciting, not corporate. Under 120 words.' },
+      { icon:'🚀', title:'Week-one activation nudge',   desc:'Get new creators posting in their first 7 days',  text:'Write a short activation message to send to a creator who has signed up but not yet posted their first piece of content or referral link. Be encouraging but create light urgency. Remind them of the incentive, give them a simple action (post once in stories), and reinforce how easy it is. Under 80 words.' },
+      { icon:'🗺️', title:'KOL campaign funnel plan',   desc:'Map a full creator acquisition funnel for a client', text:'Design a complete KOL/creator acquisition funnel for a client campaign. Include: target creator profile, sourcing channels (IG, TikTok, events, warm network), outreach message cadence, onboarding steps, activation triggers, and the KPI targets for each funnel stage (outreach → reply → onboard → first post → first sale). Format as a clear step-by-step action plan.' },
+      { icon:'📊', title:'Creator campaign report',     desc:'Weekly KPI summary for a creator program',        text:'Write a weekly creator campaign performance report template for a client. Include sections for: total active creators, new creators onboarded this week, content posted, link clicks, conversions, revenue generated, top performing creator, and one recommendation for next week. Make it easy to scan and shareable with the client as a WhatsApp or Slack update.' },
+    ],
+  },
+  {
     id: 'finance', label: 'Finance', icon: '💰', color: '#FBBF24',
     prompts: [
       { icon:'🏔️', title:'Path to $100k MRR',          desc:'Map the exact route to 6-figure revenue',      text:'Map our exact path from $35.7k MRR to $100k MRR. How many clients do we need, at what price points, in what timeframe? What are the critical milestones, what changes operationally at each stage, and what is the #1 risk to this plan?' },
@@ -120,7 +135,7 @@ function PromptLibrary({ onSelect, disabled }) {
           disabled={disabled}
         >
           <span aria-hidden="true" style={{ fontSize:14 }}>✦</span>
-          50 Prompts
+          60 Prompts
           <span style={{ marginLeft:'auto', fontSize:11, opacity:0.6 }}>{open ? '▲' : '▼'}</span>
         </button>
         <button
@@ -142,7 +157,7 @@ function PromptLibrary({ onSelect, disabled }) {
             <span aria-hidden="true" style={{ color:'var(--muted)' }}>🔍</span>
             <input
               className="prompt-search"
-              placeholder="Search 50 prompts…"
+              placeholder="Search 60 prompts…"
               value={search}
               onChange={e => setSearch(e.target.value)}
               aria-label="Search prompts"
@@ -218,7 +233,7 @@ function PromptLibrary({ onSelect, disabled }) {
 
           {/* Footer count */}
           <div style={{ textAlign:'right', fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)', marginTop:8, letterSpacing:1 }}>
-            {search ? `${visible.length} RESULTS` : `${visible.length} OF 50 PROMPTS`}
+            {search ? `${visible.length} RESULTS` : `${visible.length} OF 60 PROMPTS`}
           </div>
         </div>
       )}
@@ -353,7 +368,7 @@ export default function AIBrain({ agents, columns, workflows, clients, aiMsgs, s
         <div className="flex-between">
           <div>
             <h1 id="ai-title" className="view-title">🧠 Agency AI Brain</h1>
-            <p className="view-subtitle">Full-context assistant — {settings?.provider ?? 'minimax'} powered</p>
+            <p className="view-subtitle">60-prompt library + full-context assistant — {settings?.provider ?? 'minimax'} powered</p>
           </div>
           <button className="btn btn--ghost btn--sm" onClick={clearHistory} aria-label="Clear conversation">
             Clear

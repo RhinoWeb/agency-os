@@ -4,7 +4,7 @@ import { C } from '../theme.js';
 
 const PRIORITY_COLOR = { high: C.red, medium: C.yellow, low: C.accent };
 
-export default function TaskBoard({ columns, timer, startTimer, fmtTimer, moveTask, toggleSub, setModal }) {
+export default function TaskBoard({ columns, timer, startTimer, fmtTimer, moveTask, toggleSub, deleteTask, setModal }) {
   const [drag,         setDrag]         = useState(null);
   const [expandedTask, setExpandedTask] = useState(null);
 
@@ -145,6 +145,14 @@ export default function TaskBoard({ columns, timer, startTimer, fmtTimer, moveTa
                               ⏱ {Math.floor(task.time/60)}h{task.time%60}m
                             </span>
                           )}
+                          <button
+                            className="btn btn--sm"
+                            style={{ marginLeft:'auto', background:`${C.red}12`, borderColor:C.red, color:C.red }}
+                            onClick={() => { if (window.confirm(`Delete "${task.title}"?`)) { deleteTask(task.id); setExpandedTask(null); } }}
+                            aria-label={`Delete task: ${task.title}`}
+                          >
+                            ✕ Delete
+                          </button>
                         </div>
                       </div>
                     )}

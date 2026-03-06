@@ -10,10 +10,12 @@ const TABS = [
   { id: 'schedule',  label: 'Schedule', icon: '◷' },
   { id: 'knowledge', label: 'Docs',     icon: '◎' },
   { id: 'ai',        label: 'AI',       icon: '🧠' },
+  { id: 'leads',     label: 'Leads',    icon: '◉'  },
+  { id: 'campaigns', label: 'Campaigns',icon: '📨' },
   { id: 'browser',   label: 'Browser',  icon: '🌐' },
 ];
 
-export default function Nav({ tab, setTab, unread, actAgents, showNotif, setShowNotif, setNotifs, setShowCmd, timer, fmtTimer, profile, updateAvailable }) {
+export default function Nav({ tab, setTab, unread, actAgents, showNotif, setShowNotif, setNotifs, setShowCmd, timer, fmtTimer, profile, updateAvailable, serverOnline }) {
   function handleNotif() {
     setShowNotif(p => !p);
     setNotifs(p => p.map(n => ({ ...n, read: true })));
@@ -69,9 +71,10 @@ export default function Nav({ tab, setTab, unread, actAgents, showNotif, setShow
           )}
         </button>
 
-        <span className="nav-live-status" aria-label={`${actAgents.length} agents live`}>
-          <Dot status="active" />
+        <span className="nav-live-status" aria-label={`${actAgents.length} agents live, API ${serverOnline ? 'online' : 'offline'}`}>
+          <Dot status={serverOnline ? 'active' : 'paused'} />
           {actAgents.length} LIVE
+          {!serverOnline && <span style={{ color:'var(--red)', marginLeft:4, fontSize:9 }}>· API ⚠</span>}
         </span>
 
         <button
@@ -113,7 +116,10 @@ export default function Nav({ tab, setTab, unread, actAgents, showNotif, setShow
           aria-current={tab === 'profile' ? 'page' : undefined}
           title="Profile"
         >
-          {profile?.avatar ?? '🦊'}
+          {profile?.avatar?.startsWith('data:')
+            ? <img src={profile.avatar} alt="Profile" style={{ width:22, height:22, borderRadius:'50%', objectFit:'cover', display:'block' }}/>
+            : (profile?.avatar ?? '🦊')
+          }
         </button>
       </div>
     </nav>

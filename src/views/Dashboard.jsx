@@ -15,6 +15,18 @@ export default function Dashboard({
 }) {
   const [aiInput, setAiInput] = useState('');
 
+  const pipelineClients = clients.filter(c => c.status === 'pipeline');
+  const FUNNEL_STAGES   = ['outreach','replied','call','proposal','closed'];
+  const FUNNEL_LABELS   = { outreach:'Outreach', replied:'Replied', call:'Call Booked', proposal:'Proposal', closed:'Closed' };
+  const FUNNEL_COLORS   = { outreach:C.muted, replied:C.accent5, call:C.yellow, proposal:C.accent3, closed:C.accent };
+  const stageCounts     = FUNNEL_STAGES.map(s => ({
+    s, label: FUNNEL_LABELS[s], color: FUNNEL_COLORS[s],
+    count: pipelineClients.filter(c => c.outreachStage === s).length,
+  }));
+  const pipelineTotal   = pipelineClients.length || 1;
+  const creatorClients  = clients.filter(c => c.clientType === 'creator' && c.status === 'active');
+  const creatorMrr      = creatorClients.reduce((s, c) => s + (c.mrr || 0), 0);
+
   const kpis = [
     { l: 'MRR',         v: `$${(mrr/1000).toFixed(1)}k`,                                 icon: '💰', c: C.accent,  s: '+8% MoM' },
     { l: 'Active Tasks', v: allTasks.length - columns.done.items.length,                  icon: '📋', c: C.accent3, s: `${columns.inProgress.items.length} in progress` },
@@ -78,6 +90,50 @@ export default function Dashboard({
           </article>
         ))}
       </div>
+
+      {/* Campaign & Creator Pipeline Widget */}
+      <article className="card mb-18" aria-label="Campaign and creator pipeline">
+        <div className="flex-between mb-14">
+          <div className="section-label">Campaign & Creator Pipeline</div>
+          <span className="text-xs text-muted">{pipelineClients.length} active prospect{pipelineClients.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:24 }}>
+          {/* Outreach funnel */}
+          <div>
+            <div style={{ fontSize:9, fontFamily:'var(--mono)', color:'var(--muted)', textTransform:'uppercase', letterSpacing:1, marginBottom:10 }}>Outreach Funnel</div>
+            <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+              {stageCounts.map(({ s, label, count, color }) => (
+                <div key={s}>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
+                    <span style={{ fontSize:10, color:'var(--muted)', fontFamily:'var(--mono)' }}>{label}</span>
+                    <span style={{ fontSize:10, fontWeight:700, fontFamily:'var(--mono)', color }}>{count}</span>
+                  </div>
+                  <div style={{ height:4, borderRadius:2, background:'var(--border)', overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:`${(count / pipelineTotal) * 100}%`, background:color, borderRadius:2, transition:'width .4s ease' }}/>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* Creator KPIs */}
+          <div>
+            <div style={{ fontSize:9, fontFamily:'var(--mono)', color:'var(--muted)', textTransform:'uppercase', letterSpacing:1, marginBottom:10 }}>Creator / KOL Stats</div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+              {[
+                { l:'Active KOLs',     v: creatorClients.length,                              c:'#EC4899' },
+                { l:'Creator MRR',     v: `$${(creatorMrr/1000).toFixed(1)}k`,                c:'#EC4899' },
+                { l:'Pipeline Leads',  v: pipelineClients.length,                             c: C.accent5 },
+                { l:'Est. Close MRR',  v: `~$${((pipelineClients.reduce((s,c)=>s+(c.mrr||0),0))/1000).toFixed(1)}k`, c: C.accent5 },
+              ].map((m, i) => (
+                <div key={i} style={{ background:'var(--surface2)', borderRadius:8, padding:'10px 12px', textAlign:'center' }}>
+                  <div style={{ fontSize:17, fontWeight:700, fontFamily:'var(--sans)', color:m.c }}>{m.v}</div>
+                  <div style={{ fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)', textTransform:'uppercase', letterSpacing:1, marginTop:2 }}>{m.l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </article>
 
       {/* Charts + Schedule + Activity */}
       <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr', gap:14, marginBottom:18 }}>

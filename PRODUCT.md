@@ -31,9 +31,9 @@
 | 🏢 Clients | CRM with health scores, MRR, contacts, pipeline tracking | ✅ Live |
 | ◷ Schedule | Calendar view of meetings, agent runs, and deliverables | ✅ Live |
 | ◎ Knowledge Base | Internal docs, SOPs, templates — searchable with star/edit | ✅ Live |
-| 🧠 AI Brain | 50-prompt library + full-context AI chat (multi-provider) | ✅ Live |
+| 🧠 AI Brain | 60-prompt library + full-context AI chat (multi-provider) | ✅ Live |
 | 🌐 Web Browser | AI-directed research browser with reader view + analysis | ✅ Live |
-| ⚙ Settings | Multi-provider AI keys, 6 color themes, font size, agency prefs | ✅ Live |
+| ⚙ Settings | AI keys, Tool Vault (45 tools, 6 categories), themes, agency prefs | ✅ Live |
 | 👤 Profile | Avatar picker, agency stats, bio, identity card | ✅ Live |
 | 📖 Wiki | Built-in knowledge base for how to use Agency OS | ✅ Live |
 | 🔄 Updates | In-app version checker and one-click updater | ✅ Live |
@@ -88,7 +88,7 @@ agency-os/
 
 ### AI Features
 - **AI Brain**: Full agency context injected into every message (tasks, agents, clients, workflows, financials)
-- **50 Prompt Library**: Pre-written prompts across Growth, Operations, Daily, Marketing, Finance
+- **60 Prompt Library**: Pre-written prompts across Growth, Operations, Daily, Marketing, Finance, Outreach
 - **AI Browse**: AI decides what URL to visit → fetches page → streams analysis
 - **Provider switching**: Change AI provider in Settings without restarting
 
@@ -116,7 +116,11 @@ All data lives in `localStorage` in the browser. Updates to the codebase cannot 
 
 ## 6. Roadmap
 
-### v1.1.0 — Collaboration (Q2 2026)
+### v1.1.0 — Creator & Campaign Layer (Q2 2026)
+- [ ] Creator/KOL client sub-type — commission rate, platform, niche, referral link, onboarding status
+- [ ] Outreach funnel pipeline — configurable stages (Outreach → Reply → Call → Onboarded → First Sale) with weekly targets and conversion rates
+- [ ] Campaign KPI dashboard widget — funnel metrics pulled from client pipeline data
+- [ ] Pre-built workflow templates — "Influencer Launch Campaign", "Content Campaign Launch", "Cold Outreach Sprint"
 - [ ] Multi-user support (shared state via local network)
 - [ ] Client portal view (read-only share link)
 - [ ] CSV import/export for clients and tasks

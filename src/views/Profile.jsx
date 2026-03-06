@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { ProgressBar } from '../components/ui/index.jsx';
 import { C } from '../theme.js';
 
@@ -6,8 +6,40 @@ const AVATARS = ['🦊','🐺','🦁','🐯','🦅','🦋','🐉','🌊','⚡','
 
 export default function Profile({ profile, setProfile, agents, clients, allTasks, mrr }) {
   const [pickingAvatar, setPickingAvatar] = useState(false);
+  const [saved,         setSaved]         = useState(false);
+  const fileRef = useRef(null);
 
   function set(k, v) { setProfile(p => ({ ...p, [k]: v })); }
+
+  function handlePhotoUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Photo must be under 2 MB. Please choose a smaller image.');
+      e.target.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        // Resize to max 200×200 to keep localStorage small
+        const MAX = 200;
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width  = Math.round(img.width  * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        set('avatar', canvas.toDataURL('image/jpeg', 0.85));
+        setPickingAvatar(false);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  }
+
+  const isPhoto = profile.avatar?.startsWith('data:');
 
   const activeClients = clients.filter(c => c.status === 'active');
   const avgHealth     = activeClients.length
@@ -39,24 +71,60 @@ export default function Profile({ profile, setProfile, agents, clients, allTasks
               aria-expanded={pickingAvatar}
               onKeyDown={e => (e.key==='Enter'||e.key===' ') && setPickingAvatar(p=>!p)}
             >
-              <span style={{ fontSize: 52 }}>{profile.avatar}</span>
+              {isPhoto ? (
+                <img
+                  src={profile.avatar}
+                  alt="Profile photo"
+                  style={{ width:72, height:72, borderRadius:'50%', objectFit:'cover', display:'block', margin:'0 auto' }}
+                />
+              ) : (
+                <span style={{ fontSize: 52 }}>{profile.avatar}</span>
+              )}
               <div className="profile-avatar__hint">click to change</div>
             </div>
 
+            {/* Hidden file input */}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              style={{ display:'none' }}
+              onChange={handlePhotoUpload}
+            />
+
             {/* Avatar picker */}
             {pickingAvatar && (
-              <div className="avatar-picker" role="grid" aria-label="Choose avatar">
-                {AVATARS.map(a => (
+              <div style={{ marginTop:12 }}>
+                <button
+                  className="btn btn--sm"
+                  style={{ width:'100%', marginBottom:10, background:`${C.accent}12`, borderColor:C.accent, color:C.accent }}
+                  onClick={e => { e.stopPropagation(); fileRef.current?.click(); }}
+                >
+                  📷 Upload Photo
+                </button>
+                <div className="section-label mb-8" style={{ textAlign:'left' }}>Or pick an emoji</div>
+                <div className="avatar-picker" role="grid" aria-label="Choose avatar">
+                  {AVATARS.map(a => (
+                    <button
+                      key={a}
+                      className={`avatar-option${profile.avatar === a ? ' avatar-option--active' : ''}`}
+                      onClick={() => { set('avatar', a); setPickingAvatar(false); }}
+                      aria-label={`Avatar ${a}`}
+                      role="gridcell"
+                    >
+                      {a}
+                    </button>
+                  ))}
+                </div>
+                {isPhoto && (
                   <button
-                    key={a}
-                    className={`avatar-option${profile.avatar === a ? ' avatar-option--active' : ''}`}
-                    onClick={() => { set('avatar', a); setPickingAvatar(false); }}
-                    aria-label={`Avatar ${a}`}
-                    role="gridcell"
+                    className="btn btn--ghost btn--sm"
+                    style={{ marginTop:8, fontSize:10, color:'var(--muted)' }}
+                    onClick={() => { set('avatar', AVATARS[0]); setPickingAvatar(false); }}
                   >
-                    {a}
+                    Remove photo
                   </button>
-                ))}
+                )}
               </div>
             )}
 
@@ -135,10 +203,11 @@ export default function Profile({ profile, setProfile, agents, clients, allTasks
 
             <button
               className="btn btn--primary"
-              onClick={() => {}}
+              onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2000); }}
               style={{ alignSelf:'flex-start' }}
+              aria-live="polite"
             >
-              Save Profile
+              {saved ? '✓ Saved' : 'Save Profile'}
             </button>
           </div>
         </div>

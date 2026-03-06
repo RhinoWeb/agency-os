@@ -4,9 +4,22 @@ import {
 } from 'recharts';
 import { ChartTooltip } from '../components/ui/index.jsx';
 import { C } from '../theme.js';
-import { revenueData, taskCompletionData } from '../data.js';
+import { revenueData } from '../data.js';
 
-export default function Analytics({ agents, clients }) {
+export default function Analytics({ agents, clients, columns }) {
+  // ── Real data derivations ──────────────────────────────
+  const currentMrr  = clients.filter(c => c.status === 'active').reduce((s, c) => s + c.mrr, 0);
+  const currentMonth = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][new Date().getMonth()];
+  const liveRevenueData = revenueData.map((d, i) =>
+    i === revenueData.length - 1
+      ? { ...d, month: currentMonth, revenue: currentMrr, expenses: Math.round(currentMrr * 0.24), profit: Math.round(currentMrr * 0.76) }
+      : d
+  );
+
+  const taskStatusData = columns
+    ? Object.entries(columns).map(([, col]) => ({ status: col.title.replace('IN PROGRESS','IN PROG'), count: col.items.length }))
+    : [];
+
   const agentLoadData = agents.map(a => ({
     name: a.name.split(' ')[0],
     tasks: a.tasks,
@@ -34,7 +47,7 @@ export default function Analytics({ agents, clients }) {
         <article className="card" aria-label="Revenue and profit chart">
           <div className="section-label" style={{ marginBottom:12 }}>Revenue & Profit (6 months)</div>
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={revenueData}>
+            <AreaChart data={liveRevenueData}>
               <defs>
                 <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%"  stopColor={C.accent}  stopOpacity={0.3}/>
@@ -55,16 +68,15 @@ export default function Analytics({ agents, clients }) {
           </ResponsiveContainer>
         </article>
 
-        {/* Task Throughput */}
-        <article className="card" aria-label="Task throughput chart">
-          <div className="section-label" style={{ marginBottom:12 }}>Task Throughput (This Week)</div>
+        {/* Tasks by Status — real data */}
+        <article className="card" aria-label="Tasks by status chart">
+          <div className="section-label" style={{ marginBottom:12 }}>Tasks by Status (Live)</div>
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={taskCompletionData}>
-              <XAxis dataKey="day" tick={{ fontSize:10, fill:C.muted }} axisLine={false} tickLine={false}/>
-              <YAxis tick={{ fontSize:10, fill:C.muted }} axisLine={false} tickLine={false}/>
+            <BarChart data={taskStatusData}>
+              <XAxis dataKey="status" tick={{ fontSize:10, fill:C.muted }} axisLine={false} tickLine={false}/>
+              <YAxis tick={{ fontSize:10, fill:C.muted }} axisLine={false} tickLine={false} allowDecimals={false}/>
               <Tooltip content={<ChartTooltip/>}/>
-              <Bar dataKey="completed" fill={C.accent}  radius={[4,4,0,0]} name="Completed"/>
-              <Bar dataKey="created"   fill={C.accent3} radius={[4,4,0,0]} name="Created"/>
+              <Bar dataKey="count" radius={[4,4,0,0]} name="Tasks" fill={C.accent}/>
             </BarChart>
           </ResponsiveContainer>
         </article>
