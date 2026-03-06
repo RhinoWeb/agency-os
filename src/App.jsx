@@ -273,7 +273,7 @@ export default function App() {
         />
       )}
 
-      <main id="main-content" tabIndex={-1}>
+      <main id="main-content" className="main-content-wrapper" tabIndex={-1}>
         {tab === 'dashboard' && <Dashboard  {...shared} />}
         {tab === 'tasks'     && <TaskBoard  {...shared} />}
         {tab === 'agents'    && <AgentFleet {...shared} />}
