@@ -29,10 +29,10 @@ export default function Dashboard({
 
   const kpis = [
     { l: 'MRR',         v: `$${(mrr/1000).toFixed(1)}k`,                                 icon: '💰', c: C.accent,  s: '+8% MoM' },
-    { l: 'Active Tasks', v: allTasks.length - columns.done.items.length,                  icon: '📋', c: C.accent3, s: `${columns.inProgress.items.length} in progress` },
-    { l: 'Agents Live',  v: `${actAgents.length}/${agents.length}`,                       icon: '🤖', c: C.accent,  s: `${agents.reduce((s,a) => s+a.queue.length, 0)} queued` },
-    { l: 'Done Today',   v: columns.done.items.length,                                    icon: '✅', c: C.green,   s: `${Math.round(columns.done.items.length / Math.max(1, allTasks.length) * 100)}% rate` },
-    { l: 'Fleet Eff',    v: `${Math.round(agents.reduce((s,a) => s+a.efficiency,0)/agents.length)}%`, icon: '⚡', c: C.yellow, s: 'Avg across 6' },
+    { l: 'Active Tasks', v: allTasks.length - (columns.done?.items?.length ?? 0),         icon: '📋', c: C.accent3, s: `${columns.inProgress?.items?.length ?? 0} in progress` },
+    { l: 'Agents Live',  v: `${actAgents.length}/${agents.length}`,                       icon: '🤖', c: C.accent,  s: `${agents.reduce((s,a) => s+(a.queue?.length ?? 0), 0)} queued` },
+    { l: 'Done Today',   v: columns.done?.items?.length ?? 0,                             icon: '✅', c: C.green,   s: `${Math.round((columns.done?.items?.length ?? 0) / Math.max(1, allTasks.length) * 100)}% rate` },
+    { l: 'Fleet Eff',    v: `${agents.length ? Math.round(agents.reduce((s,a) => s+a.efficiency,0)/agents.length) : 0}%`, icon: '⚡', c: C.yellow, s: 'Avg across 6' },
     { l: 'Clients',      v: clients.filter(c => c.status==='active').length,              icon: '🏢', c: C.accent4, s: `${clients.filter(c=>c.status==='pipeline').length} pipeline` },
   ];
 

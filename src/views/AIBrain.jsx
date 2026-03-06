@@ -260,8 +260,8 @@ High priority: ${allTasks.filter(t => t.priority === 'high').map(t => t.title).j
 Due today: ${allTasks.filter(t => t.due === 'Today').map(t => t.title).join(', ')}
 
 ### Agent Fleet (${actAgents.length}/${agents.length} active)
-${agents.map(a => `- **${a.name}**: ${a.status.toUpperCase()} | ${a.efficiency}% efficiency | ${a.queue.length} queued`).join('\n')}
-Fleet avg efficiency: ${Math.round(agents.reduce((s,a) => s+a.efficiency, 0)/agents.length)}%
+${agents.map(a => `- **${a.name}**: ${a.status.toUpperCase()} | ${a.efficiency}% efficiency | ${a.queue?.length ?? 0} queued`).join('\n')}
+Fleet avg efficiency: ${agents.length ? Math.round(agents.reduce((s,a) => s+a.efficiency, 0)/agents.length) : 0}%
 
 ### Workflows
 ${workflows.map(w => `- **${w.name}**: ${w.status} | ${w.successRate}% success | ${w.runs} runs`).join('\n')}
@@ -343,7 +343,7 @@ export default function AIBrain({ agents, columns, workflows, clients, aiMsgs, s
               setAiMsgs(p => { const c=[...p]; c[c.length-1]={ role:'ai', text:snap }; return c; });
             }
           } catch (e) {
-            if (e.message && e.message !== 'SyntaxError') {
+            if (e.message && e.name !== 'SyntaxError') {
               setAiMsgs(p => { const c=[...p]; c[c.length-1]={ role:'ai', text:`⚠️ ${e.message}` }; return c; });
             }
           }

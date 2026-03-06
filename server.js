@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
+import { createHmac } from 'crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -723,16 +724,13 @@ app.post('/api/instantly/webhook', express.raw({ type: '*/*' }), (req, res) => {
   if (secret) {
     const sig = req.headers['x-instantly-signature'];
     if (!sig) return res.status(401).json({ error: 'Missing signature' });
-    // Simple SHA256 HMAC check
-    try {
-      const crypto = await import('crypto');
-      const expected = crypto.createHmac('sha256', secret).update(req.body).digest('hex');
-      if (sig !== expected) return res.status(401).json({ error: 'Invalid signature' });
-    } catch { /* skip if crypto fails */ }
+    const expected = createHmac('sha256', secret).update(req.body).digest('hex');
+    if (sig !== expected) return res.status(401).json({ error: 'Invalid signature' });
   }
-  const event = JSON.parse(req.body.toString());
-  console.log('[Instantly webhook]', event.event_type, event.lead_email);
-  // Clients can poll /api/instantly/replies for latest — webhook just logs for now
+  try {
+    const event = JSON.parse(req.body.toString());
+    console.log('[Instantly webhook]', event.event_type, event.lead_email);
+  } catch { /* malformed body */ }
   res.json({ ok: true });
 });
 

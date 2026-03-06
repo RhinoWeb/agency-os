@@ -46,8 +46,8 @@ export default function TaskBoard({ columns, timer, startTimer, fmtTimer, moveTa
             <div className="column-body">
               {col.items.map(task => {
                 const expanded = expandedTask === task.id;
-                const sDone    = task.subtasks.filter(s => s.d).length;
-                const sTotal   = task.subtasks.length;
+                const sDone    = (task.subtasks ?? []).filter(s => s.d).length;
+                const sTotal   = (task.subtasks ?? []).length;
                 const isTimingThis = timer.on && timer.tid === task.id;
 
                 return (

@@ -306,7 +306,7 @@ export default function Clients({ clients, setClients, mrr }) {
               <div style={{ fontSize:12, lineHeight:1.8 }}>
                 <div>Contact: {cl.contact}</div>
                 <div>Email: <a href={`mailto:${cl.email}`} style={{ color:'var(--accent4)' }}>{cl.email}</a></div>
-                <div>Next Meeting: {cl.nextMeeting}</div>
+                <div>Next Meeting: {cl.nextMeeting ?? '—'}</div>
                 <div>Services: {cl.services.join(', ')}</div>
               </div>
             </div>
@@ -385,7 +385,7 @@ export default function Clients({ clients, setClients, mrr }) {
                 <div className="client-services">
                   {cl.services.map(s => <Badge key={s} label={s} color={C.accent4}/>)}
                 </div>
-                <div className="client-next">Next: {cl.nextMeeting}</div>
+                <div className="client-next">Next: {cl.nextMeeting ?? '—'}</div>
               </button>
             ))}
           </div>
@@ -418,7 +418,7 @@ export default function Clients({ clients, setClients, mrr }) {
                 <div className="client-services mb-8">
                   {cl.services.map(s => <Badge key={s} label={s} color={C.accent4}/>)}
                 </div>
-                <div className="client-next">Next: {cl.nextMeeting}</div>
+                <div className="client-next">Next: {cl.nextMeeting ?? '—'}</div>
                 <div style={{ fontSize:11, color:'var(--dim)', marginTop:6 }}>{cl.notes}</div>
                 {cl.outreachStage && <OutreachFunnelRow client={cl}/>}
               </button>

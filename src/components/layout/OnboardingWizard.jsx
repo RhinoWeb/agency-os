@@ -8,7 +8,7 @@ export default function OnboardingWizard({ settings, setSettings, profile, setPr
   const [name,     setName]     = useState(profile.name === 'Agency Owner' ? '' : profile.name);
   const [agency,   setAgency]   = useState(settings.agencyName === 'My Agency' ? '' : settings.agencyName);
   const [provider, setProvider] = useState(settings.provider);
-  const [apiKey,   setApiKey]   = useState(settings.apiKeys[settings.provider] || '');
+  const [apiKey,   setApiKey]   = useState(settings.apiKeys?.[settings.provider] || '');
   const [cleared,  setCleared]  = useState(false);
 
   function handleStep1() {

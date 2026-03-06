@@ -150,7 +150,7 @@ export default function Profile({ profile, setProfile, agents, clients, allTasks
                 { label:'Fleet Eff.',    value:`${fleetEff}%`,                               color:C.accent3, pct: fleetEff },
                 { label:'Client Health', value:`${avgHealth}%`,                              color:avgHealth>=85?C.accent:avgHealth>=70?C.yellow:C.red, pct: avgHealth },
                 { label:'High Priority', value:`${doneTasks} tasks`,                         color:C.accent2, pct: Math.min(100, (doneTasks/10)*100) },
-                { label:'Active Agents', value:`${agents.filter(a=>a.status==='active').length}/${agents.length}`, color:C.green, pct: (agents.filter(a=>a.status==='active').length/agents.length)*100 },
+                { label:'Active Agents', value:`${agents.filter(a=>a.status==='active').length}/${agents.length}`, color:C.green, pct: agents.length ? (agents.filter(a=>a.status==='active').length/agents.length)*100 : 0 },
               ].map((s, i) => (
                 <div key={i}>
                   <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>

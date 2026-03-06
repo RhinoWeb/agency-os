@@ -29,7 +29,7 @@ export default function Analytics({ agents, clients, columns }) {
   const efficiencyData = [0,1,2,3,4,5,6].map(i => ({
     d: ['M','T','W','T','F','S','S'][i],
     ...Object.fromEntries(
-      agents.slice(0,4).map(a => [a.name.split(' ')[0], a.weeklyData[i]])
+      agents.slice(0,4).map(a => [a.name.split(' ')[0], a.weeklyData?.[i] ?? 0])
     ),
   }));
 
