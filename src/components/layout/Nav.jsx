@@ -12,7 +12,6 @@ const TABS = [
   { id: 'ai',        label: 'AI',       icon: '🧠' },
   { id: 'leads',     label: 'Leads',    icon: '◉'  },
   { id: 'campaigns', label: 'Campaigns',icon: '📨' },
-  { id: 'browser',   label: 'Browser',  icon: '🌐' },
 ];
 
 export default function Nav({ tab, setTab, unread, actAgents, showNotif, setShowNotif, setNotifs, setShowCmd, timer, fmtTimer, profile, updateAvailable, serverOnline }) {

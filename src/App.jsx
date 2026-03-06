@@ -20,7 +20,6 @@ import KnowledgeBase     from './views/KnowledgeBase.jsx';
 import AIBrain           from './views/AIBrain.jsx';
 import Settings          from './views/Settings.jsx';
 import Profile           from './views/Profile.jsx';
-import WebBrowser        from './views/WebBrowser.jsx';
 import Wiki              from './views/Wiki.jsx';
 import Updates           from './views/Updates.jsx';
 import LeadFinder        from './views/LeadFinder.jsx';
@@ -288,7 +287,6 @@ export default function App() {
         {tab === 'profile'   && <Profile  profile={profile} setProfile={setProfile} agents={agents} clients={clients} allTasks={allTasks} mrr={mrr} />}
         {tab === 'leads'     && <LeadFinder leads={leads} setLeads={setLeads} campaigns={campaigns} apifyRuns={apifyRuns} setApifyRuns={setApifyRuns} clients={clients} setClients={setClients} setTab={setTab} />}
         {tab === 'campaigns' && <Campaigns campaigns={campaigns} setCampaigns={setCampaigns} leads={leads} setLeads={setLeads} agents={agents} />}
-        {tab === 'browser'   && <WebBrowser settings={settings} />}
         {tab === 'wiki'      && <Wiki />}
         {tab === 'updates'   && <Updates />}
       </main>
