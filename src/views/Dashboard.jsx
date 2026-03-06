@@ -12,6 +12,7 @@ const dateStr  = now.toLocaleDateString('en-US', { weekday:'long', month:'long',
 export default function Dashboard({
   agents, columns, workflows, clients, allTasks, actAgents, mrr,
   clock, timer, fmtTimer, aiMsgs, setAiMsgs, setTab, setModal,
+  lastBriefing, autopilotRunning, runAutopilot,
 }) {
   const [aiInput, setAiInput] = useState('');
 
@@ -76,6 +77,65 @@ export default function Dashboard({
           )}
         </div>
       </header>
+
+      {/* Autopilot Briefing */}
+      {lastBriefing ? (
+        <article className="card mb-18" style={{ borderColor: 'rgba(0,255,178,0.2)', background: 'rgba(0,255,178,0.03)' }} aria-label="Autopilot morning briefing">
+          <div className="flex-between mb-10">
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <span aria-hidden="true" style={{ fontSize:16 }}>🤖</span>
+              <span className="section-label" style={{ margin:0 }}>AUTOPILOT BRIEFING</span>
+              <span style={{ fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)' }}>
+                {lastBriefing.ranAt
+                  ? `Last run ${new Date(lastBriefing.ranAt).toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' })}`
+                  : ''}
+              </span>
+            </div>
+            <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+              <span style={{ fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)' }}>Scheduled 7:00 AM</span>
+              <button className="btn btn--sm btn--ghost" onClick={runAutopilot} disabled={autopilotRunning}>
+                {autopilotRunning ? '⏳ Running…' : '▶ Run Now'}
+              </button>
+            </div>
+          </div>
+          <p style={{ fontSize:12, color:'var(--dim)', fontFamily:'var(--sans)', lineHeight:1.7, marginBottom:12 }}>
+            {lastBriefing.briefing}
+          </p>
+          {lastBriefing.topActions?.length > 0 && (
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom: lastBriefing.flagged?.length ? 10 : 0 }}>
+              {lastBriefing.topActions.map((a, i) => (
+                <span key={i} style={{ fontSize:10, padding:'3px 10px', borderRadius:99, border:'1px solid rgba(0,255,178,0.25)', color:'var(--accent)', fontFamily:'var(--mono)', background:'rgba(0,255,178,0.06)' }}>
+                  {i + 1}. {a}
+                </span>
+              ))}
+            </div>
+          )}
+          {lastBriefing.flagged?.length > 0 && (
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:8 }}>
+              {lastBriefing.flagged.map((f, i) => (
+                <span key={i} style={{ fontSize:10, padding:'3px 10px', borderRadius:99, border:'1px solid rgba(251,191,36,0.3)', color:'var(--yellow)', fontFamily:'var(--mono)', background:'rgba(251,191,36,0.06)' }}>
+                  ⚠ {f.name}: {f.reason}
+                </span>
+              ))}
+            </div>
+          )}
+        </article>
+      ) : (
+        <article className="card mb-18" style={{ padding:'14px 20px', borderStyle:'dashed', opacity:0.75 }} aria-label="Autopilot not yet run">
+          <div className="flex-between">
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <span aria-hidden="true">🤖</span>
+              <span className="section-label" style={{ margin:0 }}>AUTOPILOT</span>
+              <span style={{ fontSize:10, color:'var(--muted)', fontFamily:'var(--mono)' }}>
+                Runs daily at 7:00 AM · Not yet run today
+              </span>
+            </div>
+            <button className="btn btn--sm btn--ghost" onClick={runAutopilot} disabled={autopilotRunning}>
+              {autopilotRunning ? '⏳ Running…' : '▶ Run Briefing Now'}
+            </button>
+          </div>
+        </article>
+      )}
 
       {/* KPI Row */}
       <div className="grid-6 mb-20" role="list" aria-label="Key performance indicators">

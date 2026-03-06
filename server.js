@@ -154,6 +154,87 @@ app.post('/api/test-key', async (req, res) => {
   }
 });
 
+// ── Autopilot context builder ─────────────────────────────────
+function buildAutopilotContext({ agents, allTasks, clients, leads, campaigns }) {
+  const activeAgents   = (agents   ?? []).filter(a => a.status === 'active');
+  const atRiskClients  = (clients  ?? []).filter(c => c.status === 'active' && (c.health < 75));
+  const hotLeads       = (leads    ?? []).filter(l => (l.leadScore ?? 0) >= 70 && l.replyStatus !== 'booked');
+  const activeCampaigns= (campaigns?? []).filter(c => c.status === 'active');
+  const tasks          = (allTasks ?? []).slice(0, 15);
+
+  return [
+    `AGENTS (${activeAgents.length} active of ${agents?.length ?? 0}): ${activeAgents.map(a => `${a.name} [${a.queue?.length ?? 0} queued, ${a.efficiency ?? 0}% eff]`).join(', ') || 'none'}`,
+    `TASKS (${allTasks?.length ?? 0} total): ${tasks.map(t => `"${t.title}" [${t.priority ?? 'normal'} priority, agent: ${t.agent ?? 'Unassigned'}]`).join('; ') || 'none'}`,
+    `CLIENTS (${clients?.filter(c => c.status === 'active').length ?? 0} active): ${(clients ?? []).filter(c => c.status === 'active').map(c => `${c.name} [$${((c.mrr ?? 0) / 1000).toFixed(1)}k MRR, health: ${c.health ?? 0}%]`).join(', ') || 'none'}`,
+    `AT-RISK CLIENTS: ${atRiskClients.map(c => c.name).join(', ') || 'none'}`,
+    `HOT LEADS (score≥70): ${hotLeads.map(l => `${l.name} @ ${l.company} (score: ${l.leadScore})`).join(', ') || 'none'}`,
+    `ACTIVE CAMPAIGNS: ${activeCampaigns.map(c => `${c.name} [${c.leads?.length ?? 0} leads]`).join(', ') || 'none'}`,
+  ].join('\n');
+}
+
+// ── /api/autopilot/briefing ───────────────────────────────────
+app.post('/api/autopilot/briefing', async (req, res) => {
+  const { agents, allTasks, clients, leads, campaigns,
+          provider = 'minimax', apiKey: clientKey, model: clientModel } = req.body;
+
+  const cfg    = PROVIDERS[provider] ?? PROVIDERS.minimax;
+  const envKey = process.env[`${provider.toUpperCase()}_API_KEY`] ?? process.env.MINIMAX_API_KEY;
+  const apiKey = clientKey || envKey;
+
+  if (!apiKey) return res.status(503).json({ error: `No API key for provider "${provider}"` });
+
+  const model   = clientModel || cfg.defaultModel;
+  const context = buildAutopilotContext({ agents, allTasks, clients, leads, campaigns });
+
+  const SYSTEM = `You are Agency OS Autopilot — an autonomous agency operations agent.
+Analyze the agency state below and generate a 7 AM morning briefing.
+Return ONLY valid JSON (no markdown, no explanation) with this exact shape:
+{
+  "briefing": "2-3 sentence morning summary of agency health and priorities",
+  "assignments": [{"taskTitle": "exact task title from state", "agent": "agent name", "priority": "high|medium|low"}],
+  "flagged": [{"type": "client|lead|task", "name": "name", "reason": "one-sentence reason"}],
+  "topActions": ["action 1", "action 2", "action 3"]
+}
+Keep assignments to the top 3 highest-priority unassigned or backlogged tasks.
+Keep flagged to real risks only (at-risk clients, overdue tasks, hot leads going cold).`;
+
+  const USER = `Agency state as of 7:00 AM:\n\n${context}\n\nGenerate the morning briefing JSON.`;
+
+  try {
+    let text;
+    if (cfg.format === 'anthropic') {
+      const { default: Anthropic } = await import('@anthropic-ai/sdk');
+      const client = new Anthropic({ apiKey });
+      const msg = await client.messages.create({
+        model, max_tokens: 1024, system: SYSTEM,
+        messages: [{ role: 'user', content: USER }],
+      });
+      text = msg.content[0]?.text ?? '';
+    } else {
+      const r = await fetch(cfg.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: USER }],
+          max_tokens: 1024,
+        }),
+      });
+      if (!r.ok) return res.status(502).json({ error: `Upstream API error ${r.status}` });
+      const data = await r.json();
+      text = data.choices?.[0]?.message?.content ?? '';
+    }
+
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return res.status(502).json({ error: 'AI returned no JSON', raw: text.slice(0, 200) });
+
+    const result = JSON.parse(match[0]);
+    res.json({ ...result, ranAt: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Version & update system ───────────────────────────────────
 const LOCAL_VERSION = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf8')).version;
 let   cachedLatest  = null;

@@ -53,7 +53,8 @@ export default function App() {
   const [leads,      setLeads]      = usePersistedState('aos-leads',       seedLeads);
   const [campaigns,  setCampaigns]  = usePersistedState('aos-campaigns',   seedCampaigns);
   const [apifyRuns,  setApifyRuns]  = usePersistedState('aos-apify-runs',  []);
-  const [setupDone,  setSetupDone]  = usePersistedState('aos-setup-done',  false);
+  const [setupDone,    setSetupDone]    = usePersistedState('aos-setup-done',    false);
+  const [lastBriefing, setLastBriefing] = usePersistedState('aos-last-briefing', null);
 
   // ── Ephemeral UI state ───────────────────────────────────
   const [clock,           setClock]           = useState('');
@@ -63,6 +64,7 @@ export default function App() {
   const [timer,           setTimer]           = useState({ on: false, tid: null, sec: 0 });
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [serverOnline,    setServerOnline]    = useState(true);
+  const [autopilotRunning, setAutopilotRunning] = useState(false);
   const timerRef = useRef(null);
 
   // ── Clock ────────────────────────────────────────────────
@@ -109,6 +111,59 @@ export default function App() {
     const id = setInterval(check, 3_600_000);
     return () => clearInterval(id);
   }, []);
+
+  // ── Autopilot ────────────────────────────────────────────
+  async function runAutopilot() {
+    if (autopilotRunning) return;
+    setAutopilotRunning(true);
+    try {
+      const res = await fetch('/api/autopilot/briefing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agents, allTasks, clients, leads, campaigns,
+          provider: settings.provider,
+          apiKey:   settings.apiKeys?.[settings.provider],
+          model:    settings.model,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setLastBriefing(data);
+      setNotifs(p => [{
+        id: `autopilot-${Date.now()}`, read: false, time: 'Just now',
+        text: `🤖 Autopilot: ${data.briefing}`,
+      }, ...p]);
+    } catch (err) {
+      console.error('Autopilot error:', err);
+      setNotifs(p => [{
+        id: `autopilot-err-${Date.now()}`, read: false, time: 'Just now',
+        text: `⚠️ Autopilot failed: ${err.message}`,
+      }, ...p]);
+    } finally {
+      setAutopilotRunning(false);
+    }
+  }
+
+  // ── 7 AM daily trigger ───────────────────────────────────
+  useEffect(() => {
+    const check = () => {
+      const now = new Date();
+      if (now.getHours() !== 7 || now.getMinutes() !== 0) return;
+      // Read from localStorage directly to avoid stale closure
+      const stored = localStorage.getItem('aos-last-briefing');
+      if (stored) {
+        try {
+          const b = JSON.parse(stored);
+          if (b?.ranAt && new Date(b.ranAt).toDateString() === now.toDateString()) return;
+        } catch { /* proceed */ }
+      }
+      runAutopilot();
+    };
+    const id = setInterval(check, 60_000);
+    return () => clearInterval(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Theme ────────────────────────────────────────────────
   useEffect(() => {
@@ -237,6 +292,7 @@ export default function App() {
     aiMsgs, setAiMsgs,
     settings,
     setTab, setModal,
+    lastBriefing, autopilotRunning, runAutopilot,
   };
 
   return (
