@@ -55,6 +55,7 @@ export default function App() {
   const [apifyRuns,  setApifyRuns]  = usePersistedState('aos-apify-runs',  []);
   const [setupDone,    setSetupDone]    = usePersistedState('aos-setup-done',    false);
   const [lastBriefing, setLastBriefing] = usePersistedState('aos-last-briefing', null);
+  const [weeklyReport, setWeeklyReport] = usePersistedState('aos-weekly-report', null);
 
   // ── Ephemeral UI state ───────────────────────────────────
   const [clock,           setClock]           = useState('');
@@ -65,6 +66,7 @@ export default function App() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [serverOnline,    setServerOnline]    = useState(true);
   const [autopilotRunning, setAutopilotRunning] = useState(false);
+  const [weeklyRunning,   setWeeklyRunning]   = useState(false);
   const timerRef = useRef(null);
 
   // ── Clock ────────────────────────────────────────────────
@@ -164,6 +166,85 @@ export default function App() {
     const id = setInterval(check, 60_000);
     return () => clearInterval(id);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Weekly report ─────────────────────────────────────────
+  async function runWeeklyReport() {
+    if (weeklyRunning) return;
+    setWeeklyRunning(true);
+    try {
+      const res = await fetch('/api/report/weekly', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agents, allTasks, clients, leads, campaigns, mrr,
+          provider: settings.provider,
+          apiKey:   settings.apiKeys?.[settings.provider],
+          model:    settings.model,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setWeeklyReport(data);
+      setNotifs(p => [{
+        id: `weekly-${Date.now()}`, read: false, time: 'Just now',
+        text: `📊 Weekly Report: ${data.headline}`,
+      }, ...p]);
+    } catch (err) {
+      console.error('Weekly report error:', err);
+    } finally {
+      setWeeklyRunning(false);
+    }
+  }
+
+  // ── Monday 8 AM weekly report trigger ─────────────────────
+  useEffect(() => {
+    const check = () => {
+      const now = new Date();
+      if (now.getDay() !== 1 || now.getHours() !== 8 || now.getMinutes() !== 0) return;
+      const stored = localStorage.getItem('aos-weekly-report');
+      if (stored) {
+        try {
+          const r = JSON.parse(stored);
+          if (r?.ranAt && new Date(r.ranAt).toDateString() === now.toDateString()) return;
+        } catch { /* proceed */ }
+      }
+      runWeeklyReport();
+    };
+    const id = setInterval(check, 60_000);
+    return () => clearInterval(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Client health monitor ────────────────────────────────
+  useEffect(() => {
+    const atRisk = clients.filter(c => c.status === 'active' && (c.health ?? 100) < 75);
+    atRisk.forEach(client => {
+      const taskTitle = `Reconnect with ${client.name}`;
+      const alreadyExists = Object.values(columns).flatMap(col => col.items).some(t => t.title === taskTitle);
+      if (alreadyExists) return;
+      setColumns(p => ({
+        ...p,
+        backlog: {
+          ...p.backlog,
+          items: [...p.backlog.items, {
+            id:       `health-${client.id}-${Date.now()}`,
+            title:    taskTitle,
+            priority: 'high',
+            agent:    'Unassigned',
+            due:      'This week',
+            tags:     ['client-health'],
+            subtasks: [],
+            notes:    `Health at ${client.health}%. Schedule a check-in call to address any issues.`,
+            time:     0,
+          }],
+        },
+      }));
+      setNotifs(p => [{
+        id: `health-${client.id}-${Date.now()}`, read: false, time: 'Just now',
+        text: `⚠ ${client.name} health is ${client.health}% — reconnect task created`,
+      }, ...p]);
+    });
+  }, [clients]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Theme ────────────────────────────────────────────────
   useEffect(() => {
@@ -293,6 +374,7 @@ export default function App() {
     settings,
     setTab, setModal,
     lastBriefing, autopilotRunning, runAutopilot,
+    weeklyReport, weeklyRunning, runWeeklyReport,
   };
 
   return (

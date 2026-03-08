@@ -10,11 +10,54 @@ const greeting = hr < 12 ? 'morning' : hr < 18 ? 'afternoon' : 'evening';
 const dateStr  = now.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
 
 export default function Dashboard({
-  agents, columns, workflows, clients, allTasks, actAgents, mrr,
+  agents, columns, setColumns, workflows, clients, setClients, allTasks, actAgents, mrr,
   clock, timer, fmtTimer, aiMsgs, setAiMsgs, setTab, setModal,
+  leads, setLeads, setNotifs,
   lastBriefing, autopilotRunning, runAutopilot,
+  weeklyReport, weeklyRunning, runWeeklyReport,
 }) {
   const [aiInput, setAiInput] = useState('');
+
+  // ── Smart automation derived data ───────────────────────────
+  const hotLeads      = (leads ?? []).filter(l => l.leadScore >= 80 && l.replyStatus === 'positive');
+  const atRiskClients = clients.filter(c => c.status === 'active' && (c.health ?? 100) < 75);
+
+  function graduateLead(lead) {
+    setClients(p => [...p, {
+      id:          `c-${Date.now()}`,
+      name:        lead.company || lead.name,
+      clientType:  'brand',
+      status:      'active',
+      mrr:         0,
+      health:      80,
+      contact:     lead.name,
+      email:       lead.email,
+      since:       new Date().toISOString().split('T')[0],
+      services:    [],
+      nextMeeting: '—',
+      notes:       lead.notes ?? '',
+      color:       C.accent,
+    }]);
+    setLeads(p => p.filter(l => l.id !== lead.id));
+    setColumns(p => ({
+      ...p,
+      backlog: {
+        ...p.backlog,
+        items: [...p.backlog.items, {
+          id:       `t${Date.now()}`,
+          title:    `Onboard new client: ${lead.company || lead.name}`,
+          priority: 'high',
+          agent:    'Unassigned',
+          due:      'This week',
+          tags:     ['onboarding'],
+          subtasks: [],
+          notes:    `Graduated from lead pipeline. Contact: ${lead.email}`,
+          time:     0,
+        }],
+      },
+    }));
+    setNotifs(p => [{ id: `grad-${Date.now()}`, read: false, time: 'Just now', text: `🚀 ${lead.name} graduated to active client!` }, ...p]);
+  }
 
   const pipelineClients = clients.filter(c => c.status === 'pipeline');
   const FUNNEL_STAGES   = ['outreach','replied','call','proposal','closed'];
@@ -135,6 +178,55 @@ export default function Dashboard({
             </button>
           </div>
         </article>
+      )}
+
+      {/* Smart Alerts — Ready to Graduate + At-Risk Clients */}
+      {(hotLeads.length > 0 || atRiskClients.length > 0) && (
+        <div style={{ display:'grid', gridTemplateColumns: hotLeads.length && atRiskClients.length ? '1fr 1fr' : '1fr', gap:14, marginBottom:18 }}>
+          {hotLeads.length > 0 && (
+            <article className="card" style={{ padding:16, borderColor:'rgba(0,255,178,0.3)', background:'rgba(0,255,178,0.02)' }} aria-label="Leads ready to graduate">
+              <div className="flex-between mb-10">
+                <span className="section-label" style={{ margin:0 }}>🚀 READY TO GRADUATE</span>
+                <span style={{ fontSize:9, color:C.accent, fontFamily:'var(--mono)' }}>{hotLeads.length} lead{hotLeads.length !== 1 ? 's' : ''} · score ≥80 + positive reply</span>
+              </div>
+              {hotLeads.map(lead => (
+                <div key={lead.id} className="dash-row-item" style={{ border:`1px solid rgba(0,255,178,0.2)`, marginBottom:4 }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:11, fontWeight:600 }}>{lead.name}</div>
+                    <div style={{ fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)' }}>{lead.company} · score {lead.leadScore}</div>
+                  </div>
+                  <button className="btn btn--xs btn--primary" onClick={() => graduateLead(lead)}>
+                    → Graduate
+                  </button>
+                </div>
+              ))}
+            </article>
+          )}
+          {atRiskClients.length > 0 && (
+            <article className="card" style={{ padding:16, borderColor:'rgba(251,191,36,0.35)', background:'rgba(251,191,36,0.02)' }} aria-label="At-risk clients">
+              <div className="flex-between mb-10">
+                <span className="section-label" style={{ margin:0 }}>⚠ AT-RISK CLIENTS</span>
+                <span style={{ fontSize:9, color:C.yellow, fontFamily:'var(--mono)' }}>{atRiskClients.length} below 75% health</span>
+              </div>
+              {atRiskClients.map(client => (
+                <div key={client.id} className="dash-row-item" style={{ border:`1px solid rgba(251,191,36,0.25)`, marginBottom:4 }}>
+                  <span style={{ width:7, height:7, borderRadius:'50%', background:client.color ?? C.accent2, flexShrink:0 }}/>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:11, fontWeight:600 }}>{client.name}</div>
+                    <div style={{ fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)' }}>Health {client.health}% · ${(client.mrr/1000).toFixed(1)}k MRR</div>
+                  </div>
+                  <button
+                    className="btn btn--xs"
+                    style={{ background:'rgba(251,191,36,0.1)', borderColor:'rgba(251,191,36,0.4)', color:C.yellow }}
+                    onClick={() => setTab('clients')}
+                  >
+                    View
+                  </button>
+                </div>
+              ))}
+            </article>
+          )}
+        </div>
       )}
 
       {/* KPI Row */}
@@ -321,6 +413,74 @@ export default function Dashboard({
           ))}
         </article>
       </div>
+
+      {/* Weekly Report */}
+      <article className="card mb-18" style={{ borderColor: weeklyReport ? 'rgba(123,97,255,0.3)' : 'var(--border)', background: weeklyReport ? 'rgba(123,97,255,0.03)' : undefined, borderStyle: weeklyReport ? 'solid' : 'dashed', opacity: weeklyReport ? 1 : 0.75 }} aria-label="Weekly agency report">
+        <div className="flex-between mb-10">
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <span aria-hidden="true" style={{ fontSize:16 }}>📊</span>
+            <span className="section-label" style={{ margin:0 }}>WEEKLY REPORT</span>
+            {weeklyReport?.ranAt && (
+              <span style={{ fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)' }}>
+                {new Date(weeklyReport.ranAt).toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' })}
+              </span>
+            )}
+          </div>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            <span style={{ fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)' }}>Every Monday 8:00 AM</span>
+            <button className="btn btn--sm btn--ghost" onClick={runWeeklyReport} disabled={weeklyRunning}>
+              {weeklyRunning ? '⏳ Running…' : '▶ Run Now'}
+            </button>
+          </div>
+        </div>
+        {weeklyReport ? (
+          <>
+            <p style={{ fontSize:12, color:'var(--dim)', fontFamily:'var(--sans)', lineHeight:1.7, marginBottom:12 }}>
+              {weeklyReport.headline}
+            </p>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:12 }}>
+              {weeklyReport.topWins?.length > 0 && (
+                <div>
+                  <div style={{ fontSize:9, fontFamily:'var(--mono)', color:C.accent, textTransform:'uppercase', letterSpacing:1, marginBottom:6 }}>Top Wins</div>
+                  {weeklyReport.topWins.map((w, i) => (
+                    <div key={i} style={{ fontSize:11, color:'var(--dim)', padding:'3px 0', display:'flex', gap:6 }}>
+                      <span style={{ color:C.accent, fontFamily:'var(--mono)', fontSize:10 }}>{i+1}.</span>{w}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {weeklyReport.nextWeekPriorities?.length > 0 && (
+                <div>
+                  <div style={{ fontSize:9, fontFamily:'var(--mono)', color:C.accent3, textTransform:'uppercase', letterSpacing:1, marginBottom:6 }}>Next Week</div>
+                  {weeklyReport.nextWeekPriorities.map((p, i) => (
+                    <div key={i} style={{ fontSize:11, color:'var(--dim)', padding:'3px 0', display:'flex', gap:6 }}>
+                      <span style={{ color:C.accent3, fontFamily:'var(--mono)', fontSize:10 }}>{i+1}.</span>{p}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {weeklyReport.risks?.length > 0 && (
+              <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom: weeklyReport.recommendation ? 10 : 0 }}>
+                {weeklyReport.risks.map((r, i) => (
+                  <span key={i} style={{ fontSize:10, padding:'3px 10px', borderRadius:99, border:'1px solid rgba(251,191,36,0.3)', color:C.yellow, fontFamily:'var(--mono)', background:'rgba(251,191,36,0.06)' }}>
+                    ⚠ {r}
+                  </span>
+                ))}
+              </div>
+            )}
+            {weeklyReport.recommendation && (
+              <div style={{ marginTop:10, fontSize:11, color:'var(--dim)', fontFamily:'var(--sans)', padding:'8px 12px', background:'rgba(123,97,255,0.08)', borderRadius:8, borderLeft:`3px solid ${C.accent3}` }}>
+                💡 {weeklyReport.recommendation}
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ fontSize:11, color:'var(--muted)', fontFamily:'var(--mono)' }}>
+            No report yet · runs every Monday at 8:00 AM or click "Run Now"
+          </div>
+        )}
+      </article>
 
       {/* Quick AI bar */}
       <div className="dash-ai-bar" role="search" aria-label="Quick AI query">

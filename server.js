@@ -239,6 +239,69 @@ Keep flagged to real risks only (at-risk clients, overdue tasks, hot leads going
   }
 });
 
+// ── /api/report/weekly ────────────────────────────────────────
+app.post('/api/report/weekly', async (req, res) => {
+  const { agents, allTasks, clients, leads, campaigns, mrr,
+          provider = 'minimax', apiKey: clientKey, model: clientModel } = req.body;
+
+  const cfg    = PROVIDERS[provider] ?? PROVIDERS.minimax;
+  const envKey = process.env[`${provider.toUpperCase()}_API_KEY`] ?? process.env.MINIMAX_API_KEY;
+  const apiKey = clientKey || envKey;
+
+  if (!apiKey) return res.status(503).json({ error: `No API key for provider "${provider}"` });
+
+  const model   = clientModel || cfg.defaultModel;
+  const context = buildAutopilotContext({ agents, allTasks, clients, leads, campaigns });
+
+  const SYSTEM = `You are Agency OS Weekly Analyst generating a Monday agency performance report.
+Return ONLY valid JSON (no markdown, no explanation) with this exact shape:
+{
+  "headline": "one-sentence week summary",
+  "mrrSummary": "MRR status and trend in one sentence",
+  "topWins": ["win 1", "win 2", "win 3"],
+  "risks": ["risk 1", "risk 2"],
+  "nextWeekPriorities": ["priority 1", "priority 2", "priority 3"],
+  "agentPerformance": "one-sentence fleet efficiency summary",
+  "recommendation": "one key strategic recommendation for this week"
+}`;
+
+  const USER = `Agency state for weekly review:\n${context}\nTotal MRR: $${mrr ?? 0}\nGenerate the weekly report JSON.`;
+
+  try {
+    let text;
+    if (cfg.format === 'anthropic') {
+      const { default: Anthropic } = await import('@anthropic-ai/sdk');
+      const client = new Anthropic({ apiKey });
+      const msg = await client.messages.create({
+        model, max_tokens: 1024, system: SYSTEM,
+        messages: [{ role: 'user', content: USER }],
+      });
+      text = msg.content[0]?.text ?? '';
+    } else {
+      const r = await fetch(cfg.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: USER }],
+          max_tokens: 1024,
+        }),
+      });
+      if (!r.ok) return res.status(502).json({ error: `Upstream API error ${r.status}` });
+      const data = await r.json();
+      text = data.choices?.[0]?.message?.content ?? '';
+    }
+
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return res.status(502).json({ error: 'AI returned no JSON', raw: text.slice(0, 200) });
+
+    const result = JSON.parse(match[0]);
+    res.json({ ...result, ranAt: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Version & update system ───────────────────────────────────
 const LOCAL_VERSION = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf8')).version;
 let   cachedLatest  = null;
