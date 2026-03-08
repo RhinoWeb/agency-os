@@ -143,11 +143,12 @@ export default function Schedule({ schedule, setSchedule }) {
     fetch('/api/gcal/events')
       .then(r => r.json())
       .then(d => { setGcalEvents(d.events ?? []); setGcalStatus('connected'); })
-      .catch(() => setGcalStatus('connected'));
+      .catch(() => setGcalStatus('disconnected'));
   }
 
   function connectGcal() {
-    window.open('http://localhost:3001/api/gcal/auth', 'gcal-auth', 'width=520,height=640,left=200,top=100');
+    const base = window.location.origin.replace(':5173', ':3001').replace(':4173', ':3001');
+    window.open(`${base}/api/gcal/auth`, 'gcal-auth', 'width=520,height=640,left=200,top=100');
   }
 
   function disconnectGcal() {

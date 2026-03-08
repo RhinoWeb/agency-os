@@ -69,7 +69,7 @@ function CampaignModal({ leads, agents, onSave, onClose }) {
         camp.instantlyCampaignId = cd.campaignId;
 
         // Add leads
-        const selectedLeads = leads.filter(l => selLeads.includes(l.id));
+        const selectedLeads = (leads ?? []).filter(l => selLeads.includes(l.id));
         await fetch('/api/instantly/leads', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -83,7 +83,7 @@ function CampaignModal({ leads, agents, onSave, onClose }) {
   }
 
   const STEPS = ['Select Leads', 'Campaign Brief', 'AI Sequence', 'Review & Launch'];
-  const leadCandidates = leads.filter(l => l.status === 'lead' || l.status === 'prospect');
+  const leadCandidates = (leads ?? []).filter(l => l.status === 'lead' || l.status === 'prospect');
 
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="camp-modal-title" onClick={onClose}>
@@ -287,7 +287,7 @@ function CampaignModal({ leads, agents, onSave, onClose }) {
 function CampaignCard({ camp, leads, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   const sc = STATUS_COLORS[camp.status] ?? C.muted;
-  const campLeads = leads.filter(l => camp.leadIds.includes(l.id));
+  const campLeads = (leads ?? []).filter(l => (camp.leadIds ?? []).includes(l.id));
 
   return (
     <div className="card" style={{ padding:'14px 18px', borderLeft:`3px solid ${sc}` }}>

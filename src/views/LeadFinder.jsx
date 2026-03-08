@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Badge, ProgressBar } from '../components/ui/index.jsx';
 import { C } from '../theme.js';
 
@@ -78,7 +78,8 @@ function Pipeline({ leads, setLeads, setClients, setTab }) {
     if (window.confirm('Remove this lead?')) setLeads(p => p.filter(l => l.id !== id));
   }
 
-  const counts = statuses.slice(1).reduce((acc, s) => ({ ...acc, [s]: leads.filter(l => l.status === s).length }), {});
+  const safeLeads = leads ?? [];
+  const counts = statuses.slice(1).reduce((acc, s) => ({ ...acc, [s]: safeLeads.filter(l => l.status === s).length }), {});
 
   return (
     <div>
@@ -239,6 +240,9 @@ function FindLeads({ leads, setLeads, apifyRuns, setApifyRuns }) {
     if (pollTimer) { clearInterval(pollTimer); setPollTimer(null); }
   }
 
+  // Clear polling interval on unmount to prevent memory leak
+  useEffect(() => () => { if (pollTimer) clearInterval(pollTimer); }, [pollTimer]);
+
   async function runActor() {
     setError('');
     setPreview([]);
@@ -302,7 +306,7 @@ function FindLeads({ leads, setLeads, apifyRuns, setApifyRuns }) {
   }
 
   function importLeads() {
-    const newLeads = preview.filter(p => !leads.some(l => l.email && l.email === p.email));
+    const newLeads = preview.filter(p => !safeLeads.some(l => l.email && l.email === p.email));
     setLeads(prev => [...prev, ...newLeads]);
     setImporting(true);
     setTimeout(() => { setImporting(false); setPreview([]); setRunStatus(null); }, 1800);
@@ -416,7 +420,7 @@ function FindLeads({ leads, setLeads, apifyRuns, setApifyRuns }) {
               <div>
                 <div className="section-label">Preview — {preview.length} leads found</div>
                 <div style={{ fontSize:10, color:'var(--muted)' }}>
-                  {preview.filter(p => !leads.some(l => l.email && l.email === p.email)).length} new · {preview.filter(p => leads.some(l => l.email && l.email === p.email)).length} duplicates
+                  {preview.filter(p => !safeLeads.some(l => l.email && l.email === p.email)).length} new · {preview.filter(p => safeLeads.some(l => l.email && l.email === p.email)).length} duplicates
                 </div>
               </div>
               <button
@@ -439,7 +443,7 @@ function FindLeads({ leads, setLeads, apifyRuns, setApifyRuns }) {
                 </thead>
                 <tbody>
                   {preview.slice(0, 50).map((l, i) => {
-                    const isDup = leads.some(ex => ex.email && ex.email === l.email);
+                    const isDup = safeLeads.some(ex => ex.email && ex.email === l.email);
                     return (
                       <tr key={i} style={{ borderBottom:'1px solid var(--border)', opacity: isDup ? 0.4 : 1 }}>
                         <td style={{ padding:'5px 8px', fontWeight:600 }}>{l.name}</td>
@@ -478,9 +482,10 @@ function FindLeads({ leads, setLeads, apifyRuns, setApifyRuns }) {
 export default function LeadFinder({ leads, setLeads, campaigns, apifyRuns, setApifyRuns, clients, setClients, setTab }) {
   const [subTab, setSubTab] = useState('pipeline');
 
-  const prospectCount = leads.filter(l => l.status === 'prospect').length;
-  const positiveCount = leads.filter(l => l.replyStatus === 'positive').length;
-  const avgScore = leads.length ? Math.round(leads.reduce((s, l) => s + l.leadScore, 0) / leads.length) : 0;
+  const safeAllLeads  = leads ?? [];
+  const prospectCount = safeAllLeads.filter(l => l.status === 'prospect').length;
+  const positiveCount = safeAllLeads.filter(l => l.replyStatus === 'positive').length;
+  const avgScore = safeAllLeads.length ? Math.round(safeAllLeads.reduce((s, l) => s + (l.leadScore ?? 0), 0) / safeAllLeads.length) : 0;
 
   return (
     <section className="view" aria-labelledby="leads-title">

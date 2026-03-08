@@ -48,25 +48,29 @@ async function streamOpenAI({ url, apiKey, model, messages, res }) {
   const decoder = new TextDecoder();
   let   buffer  = '';
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() ?? '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
 
-    for (const line of lines) {
-      if (!line.startsWith('data:')) continue;
-      const data = line.slice(5).trim();
-      if (data === '[DONE]') { res.write('data: [DONE]\n\n'); continue; }
-      try {
-        const parsed = JSON.parse(data);
-        const text   = parsed.choices?.[0]?.delta?.content;
-        if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`);
-      } catch { /* skip malformed chunk */ }
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim();
+        if (data === '[DONE]') { res.write('data: [DONE]\n\n'); continue; }
+        try {
+          const parsed = JSON.parse(data);
+          const text   = parsed.choices?.[0]?.delta?.content;
+          if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`);
+        } catch { /* skip malformed chunk */ }
+      }
     }
+  } finally {
+    reader.releaseLock();
+    res.end();
   }
-  res.end();
 }
 
 // ── Anthropic streaming helper ────────────────────────────────
@@ -74,7 +78,7 @@ async function streamAnthropic({ apiKey, model, systemContext, messages, res }) 
   const { default: Anthropic } = await import('@anthropic-ai/sdk');
   const client = new Anthropic({ apiKey });
 
-  const apiMessages = messages
+  const apiMessages = (messages ?? [])
     .filter(m => m.role === 'user' || m.role === 'ai')
     .map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
 
@@ -116,7 +120,7 @@ app.post('/api/chat', async (req, res) => {
     } else {
       const apiMessages = [
         { role: 'system', content: systemContext },
-        ...messages
+        ...(messages ?? [])
           .filter(m => m.role === 'user' || m.role === 'ai')
           .map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text })),
       ];
@@ -379,6 +383,7 @@ async function llmOnce({ provider, apiKey, model, systemPrompt, userPrompt }) {
     body: JSON.stringify({ model, max_tokens: 300, temperature: 0.2,
       messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }] }),
   });
+  if (!r.ok) throw new Error(`LLM API error ${r.status}`);
   const d = await r.json();
   return d.choices?.[0]?.message?.content ?? '';
 }
@@ -665,8 +670,8 @@ app.post('/api/apify/run', async (req, res) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input ?? {}),
     });
+    if (!r.ok) { const e = await r.json().catch(() => ({})); return res.status(r.status).json({ error: e.error?.message ?? 'Apify error' }); }
     const d = await r.json();
-    if (!r.ok) return res.status(r.status).json({ error: d.error?.message ?? 'Apify error' });
     res.json({ runId: d.data.id, status: d.data.status, actorId });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -679,8 +684,8 @@ app.get('/api/apify/status/:runId', async (req, res) => {
   if (!key) return res.status(400).json({ error: 'APIFY_API_KEY not set' });
   try {
     const r = await fetch(`${APIFY_BASE}/actor-runs/${req.params.runId}?token=${key}`);
+    if (!r.ok) { const e = await r.json().catch(() => ({})); return res.status(r.status).json({ error: e.error?.message ?? 'Apify error' }); }
     const d = await r.json();
-    if (!r.ok) return res.status(r.status).json({ error: d.error?.message ?? 'Apify error' });
     res.json({ status: d.data.status, datasetId: d.data.defaultDatasetId, stats: d.data.stats });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -694,8 +699,8 @@ app.get('/api/apify/results/:datasetId', async (req, res) => {
   const limit = Math.min(Number(req.query.limit ?? 200), 500);
   try {
     const r = await fetch(`${APIFY_BASE}/datasets/${req.params.datasetId}/items?token=${key}&limit=${limit}&clean=true`);
-    const items = await r.json();
     if (!r.ok) return res.status(r.status).json({ error: 'Apify dataset error' });
+    const items = await r.json();
     res.json({ items, count: items.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -833,8 +838,8 @@ async function getZoomToken() {
     method: 'POST',
     headers: { Authorization: `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' },
   });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.reason ?? `Zoom token error ${r.status}`); }
   const d = await r.json();
-  if (!r.ok) throw new Error(d.reason ?? 'Zoom token error');
   _zoomToken       = d.access_token;
   _zoomTokenExpiry = Date.now() + (d.expires_in - 60) * 1000;
   return _zoomToken;

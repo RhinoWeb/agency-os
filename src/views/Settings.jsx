@@ -576,7 +576,7 @@ export default function Settings({ settings, setSettings, onResetAll, clients = 
                     <button
                       className="btn btn--sm"
                       style={{ background:'#4285F412', borderColor:'#4285F4', color:'#4285F4' }}
-                      onClick={() => window.open('http://localhost:3001/api/gcal/auth', 'gcal-auth', 'width=520,height=640,left=200,top=100')}
+                      onClick={() => { const base = window.location.origin.replace(':5173', ':3001').replace(':4173', ':3001'); window.open(`${base}/api/gcal/auth`, 'gcal-auth', 'width=520,height=640,left=200,top=100'); }}
                     >
                       Connect Google Calendar
                     </button>
