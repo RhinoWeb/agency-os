@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export function usePersistedState(key, defaultValue) {
   const [state, setState] = useState(() => {
@@ -10,12 +10,18 @@ export function usePersistedState(key, defaultValue) {
     }
   });
 
+  const timerRef = useRef(null);
+
   useEffect(() => {
-    try {
-      localStorage.setItem(key, JSON.stringify(state));
-    } catch {
-      // Storage quota exceeded or unavailable — silent fail
-    }
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem(key, JSON.stringify(state));
+      } catch {
+        // Storage quota exceeded or unavailable — silent fail
+      }
+    }, 300);
+    return () => clearTimeout(timerRef.current);
   }, [key, state]);
 
   return [state, setState];

@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Badge, ProgressBar } from '../components/ui/index.jsx';
 import { C } from '../theme.js';
+import { useFocusTrap } from '../hooks/useFocusTrap.js';
 
 const TONES = ['consultative', 'direct', 'friendly', 'authoritative', 'storytelling'];
 const STATUS_COLORS = { active:'#4285F4', draft:C.muted, paused:C.yellow, completed:C.green };
 
 // ── Campaign creation modal (4 steps) ──────────────────────────
 function CampaignModal({ leads, agents, onSave, onClose }) {
+  const trapRef = useFocusTrap();
   const [step,     setStep]     = useState(1);
   const [selLeads, setSelLeads] = useState([]);
   const [brief,    setBrief]    = useState({ offer:'', icp:'', tone:'consultative', caseStudy:'' });
@@ -43,7 +45,7 @@ function CampaignModal({ leads, agents, onSave, onClose }) {
 
   async function launch() {
     const camp = {
-      id:          `camp-${Date.now()}`,
+      id:          crypto.randomUUID(),
       name:        name || `Campaign — ${new Date().toLocaleDateString()}`,
       status:      'draft', // becomes 'active' after Instantly push
       createdAt:   new Date().toISOString().split('T')[0],
@@ -86,7 +88,7 @@ function CampaignModal({ leads, agents, onSave, onClose }) {
   const leadCandidates = (leads ?? []).filter(l => l.status === 'lead' || l.status === 'prospect');
 
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="camp-modal-title" onClick={onClose}>
+    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="camp-modal-title" onClick={onClose} ref={trapRef}>
       <div className="modal" style={{ maxWidth:680, width:'92vw' }} onClick={e => e.stopPropagation()}>
         {/* Step indicator */}
         <div style={{ display:'flex', gap:0, marginBottom:24 }}>
@@ -401,9 +403,12 @@ function CampaignCard({ camp, leads, onDelete }) {
   );
 }
 
+const REPLY_COLORS = { positive: C.green, neutral: C.accent3, negative: C.red };
+
 // ── Main view ───────────────────────────────────────────────────
 export default function Campaigns({ campaigns, setCampaigns, leads, setLeads, agents }) {
   const [showModal, setShowModal] = useState(false);
+  const [subTab,    setSubTab]    = useState('campaigns');
 
   const totalSent   = campaigns.reduce((s, c) => s + c.stats.sent, 0);
   const totalBooked = campaigns.reduce((s, c) => s + c.stats.booked, 0);
@@ -424,6 +429,18 @@ export default function Campaigns({ campaigns, setCampaigns, leads, setLeads, ag
     setCampaigns(p => p.filter(c => c.id !== id));
   }
 
+  const replies = (leads ?? []).filter(l => l.replyStatus && l.replyStatus !== 'none');
+  const replyGroups = { positive: [], neutral: [], negative: [] };
+  replies.forEach(l => { if (replyGroups[l.replyStatus]) replyGroups[l.replyStatus].push(l); });
+
+  function bookCall(lead) {
+    setLeads(p => p.map(l => l.id === lead.id ? { ...l, status: 'prospect', replyStatus: 'booked' } : l));
+  }
+
+  function markLost(lead) {
+    setLeads(p => p.map(l => l.id === lead.id ? { ...l, status: 'lost' } : l));
+  }
+
   return (
     <section className="view" aria-labelledby="campaigns-title">
       <header className="view-header" style={{ marginBottom:20 }}>
@@ -431,9 +448,29 @@ export default function Campaigns({ campaigns, setCampaigns, leads, setLeads, ag
           <h1 id="campaigns-title" className="view-title">Campaigns</h1>
           <p className="view-subtitle">AI-powered cold email sequences via Instantly.ai</p>
         </div>
-        <button className="btn btn--primary" onClick={() => setShowModal(true)}>
-          + New Campaign
-        </button>
+        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+          {/* Sub-tabs */}
+          {[
+            { id:'campaigns', label:'📨 Campaigns' },
+            { id:'replies',   label:`📬 Replies${replies.length > 0 ? ` (${replies.length})` : ''}` },
+          ].map(t => (
+            <button
+              key={t.id}
+              onClick={() => setSubTab(t.id)}
+              style={{
+                padding:'6px 14px', borderRadius:8, fontSize:11, cursor:'pointer',
+                fontFamily:'var(--mono)', border:`1px solid ${subTab === t.id ? 'var(--accent)' : 'var(--border)'}`,
+                background: subTab === t.id ? 'rgba(0,255,178,0.1)' : 'var(--surface2)',
+                color: subTab === t.id ? 'var(--accent)' : 'var(--muted)',
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+          {subTab === 'campaigns' && (
+            <button className="btn btn--primary" onClick={() => setShowModal(true)}>+ New Campaign</button>
+          )}
+        </div>
       </header>
 
       {/* KPI row */}
@@ -452,19 +489,80 @@ export default function Campaigns({ campaigns, setCampaigns, leads, setLeads, ag
       </div>
 
       {/* Campaign list */}
-      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-        {campaigns.length === 0 && (
-          <div className="card" style={{ padding:48, textAlign:'center', color:'var(--muted)' }}>
-            <div style={{ fontSize:32, marginBottom:12 }}>📨</div>
-            <div style={{ fontSize:14, fontWeight:600, marginBottom:6 }}>No campaigns yet</div>
-            <div style={{ fontSize:12, marginBottom:16 }}>Build a 12-step AI sequence and push it to Instantly.ai in minutes.</div>
-            <button className="btn btn--primary" onClick={() => setShowModal(true)}>+ Create First Campaign</button>
-          </div>
-        )}
-        {campaigns.map(c => (
-          <CampaignCard key={c.id} camp={c} leads={leads} onDelete={deleteCampaign} />
-        ))}
-      </div>
+      {subTab === 'campaigns' && (
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {campaigns.length === 0 && (
+            <div className="card" style={{ padding:48, textAlign:'center', color:'var(--muted)' }}>
+              <div style={{ fontSize:32, marginBottom:12 }}>📨</div>
+              <div style={{ fontSize:14, fontWeight:600, marginBottom:6 }}>No campaigns yet</div>
+              <div style={{ fontSize:12, marginBottom:16 }}>Build a 12-step AI sequence and push it to Instantly.ai in minutes.</div>
+              <button className="btn btn--primary" onClick={() => setShowModal(true)}>+ Create First Campaign</button>
+            </div>
+          )}
+          {campaigns.map(c => (
+            <CampaignCard key={c.id} camp={c} leads={leads} onDelete={deleteCampaign} />
+          ))}
+        </div>
+      )}
+
+      {/* Reply Inbox */}
+      {subTab === 'replies' && (
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          {replies.length === 0 && (
+            <div className="card" style={{ padding:48, textAlign:'center', color:'var(--muted)' }}>
+              <div style={{ fontSize:32, marginBottom:12 }}>📬</div>
+              <div style={{ fontSize:14, fontWeight:600, marginBottom:6 }}>No replies yet</div>
+              <div style={{ fontSize:12 }}>Replies from your outreach campaigns will appear here.</div>
+            </div>
+          )}
+          {Object.entries(replyGroups).map(([type, items]) => items.length === 0 ? null : (
+            <div key={type}>
+              <div className="section-label mb-8" style={{ color: REPLY_COLORS[type] }}>
+                {type === 'positive' ? '✅' : type === 'neutral' ? '💬' : '❌'} {type.toUpperCase()} ({items.length})
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {items.map(lead => (
+                  <div key={lead.id} className="card" style={{
+                    padding:'12px 16px',
+                    borderLeft:`3px solid ${REPLY_COLORS[type]}`,
+                    display:'flex', alignItems:'center', gap:12,
+                  }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontWeight:600, fontSize:13 }}>{lead.name} <span style={{ color:'var(--muted)', fontWeight:400 }}>@ {lead.company}</span></div>
+                      <div style={{ fontSize:11, color:'var(--muted)', marginTop:2, fontFamily:'var(--mono)' }}>
+                        {lead.email} · Score {lead.leadScore} · Campaign step {lead.sequenceStep ?? '—'}
+                      </div>
+                      {lead.replySnippet && (
+                        <div style={{ fontSize:11, color:'var(--dim)', marginTop:6, fontStyle:'italic', background:'var(--surface2)', borderRadius:6, padding:'6px 10px' }}>
+                          "{lead.replySnippet}"
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+                      {type === 'positive' && (
+                        <button
+                          className="btn btn--sm"
+                          style={{ background:`${C.green}15`, borderColor:C.green, color:C.green }}
+                          onClick={() => bookCall(lead)}
+                        >
+                          📅 Book Call
+                        </button>
+                      )}
+                      <button
+                        className="btn btn--sm"
+                        style={{ background:`${C.red}12`, borderColor:C.red, color:C.red }}
+                        onClick={() => markLost(lead)}
+                      >
+                        ✕ Mark Lost
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {showModal && (
         <CampaignModal

@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+import { useFocusTrap } from '../../hooks/useFocusTrap.js';
 
 export default function TaskModal({ agents, columns, onAdd, onClose }) {
   const [form, setForm] = useState({ title: '', priority: 'medium', agent: '', column: 'backlog', notes: '' });
   const titleRef = useRef(null);
+  const trapRef = useFocusTrap();
 
   useEffect(() => { titleRef.current?.focus(); }, []);
 
@@ -26,6 +28,7 @@ export default function TaskModal({ agents, columns, onAdd, onClose }) {
       aria-labelledby="modal-title"
       onClick={onClose}
       onKeyDown={handleKeyDown}
+      ref={trapRef}
     >
       <div className="modal" onClick={e => e.stopPropagation()}>
         <h2 id="modal-title" className="modal-title">Create Task</h2>

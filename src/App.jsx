@@ -1,29 +1,40 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { usePersistedState } from './hooks/usePersistedState.js';
-import { seedAgents, seedColumns, seedWorkflows, seedClients, seedLeads, seedCampaigns, seedPages, seedNotifications, seedSchedule } from './data.js';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.js';
+import { seedAgents, seedColumns, seedWorkflows, seedClients, seedLeads, seedCampaigns, seedPages, seedNotifications, seedSchedule, seedContacts, seedCompanies, seedDeals, seedEmailTemplates } from './data.js';
 import OnboardingWizard from './components/layout/OnboardingWizard.jsx';
 import { THEMES, DEFAULT_SETTINGS, DEFAULT_PROFILE } from './theme.js';
 
 import Nav               from './components/layout/Nav.jsx';
+import StatusBar         from './components/layout/StatusBar.jsx';
+import Breadcrumb        from './components/layout/Breadcrumb.jsx';
 import Notifications     from './components/layout/Notifications.jsx';
 import CommandPalette    from './components/layout/CommandPalette.jsx';
 import TaskModal         from './components/layout/TaskModal.jsx';
+import ErrorBoundary     from './components/ui/ErrorBoundary.jsx';
 
+// Eager-load core views (most visited)
 import Dashboard         from './views/Dashboard.jsx';
 import TaskBoard         from './views/TaskBoard.jsx';
-import AgentFleet        from './views/AgentFleet.jsx';
-import Workflows         from './views/Workflows.jsx';
-import Analytics         from './views/Analytics.jsx';
-import Clients           from './views/Clients.jsx';
-import Schedule          from './views/Schedule.jsx';
-import KnowledgeBase     from './views/KnowledgeBase.jsx';
-import AIBrain           from './views/AIBrain.jsx';
-import Settings          from './views/Settings.jsx';
-import Profile           from './views/Profile.jsx';
-import Wiki              from './views/Wiki.jsx';
-import Updates           from './views/Updates.jsx';
-import LeadFinder        from './views/LeadFinder.jsx';
-import Campaigns         from './views/Campaigns.jsx';
+
+// Lazy-load secondary views for code splitting
+const AgentFleet        = lazy(() => import('./views/AgentFleet.jsx'));
+const Workflows         = lazy(() => import('./views/Workflows.jsx'));
+const Analytics         = lazy(() => import('./views/Analytics.jsx'));
+const Clients           = lazy(() => import('./views/Clients.jsx'));
+const Schedule          = lazy(() => import('./views/Schedule.jsx'));
+const KnowledgeBase     = lazy(() => import('./views/KnowledgeBase.jsx'));
+const AIBrain           = lazy(() => import('./views/AIBrain.jsx'));
+const Settings          = lazy(() => import('./views/Settings.jsx'));
+const Profile           = lazy(() => import('./views/Profile.jsx'));
+const Wiki              = lazy(() => import('./views/Wiki.jsx'));
+const Updates           = lazy(() => import('./views/Updates.jsx'));
+const LeadFinder        = lazy(() => import('./views/LeadFinder.jsx'));
+const Campaigns         = lazy(() => import('./views/Campaigns.jsx'));
+const DealPipeline      = lazy(() => import('./views/DealPipeline.jsx'));
+const ContactsCompanies = lazy(() => import('./views/ContactsCompanies.jsx'));
+const EmailTemplates    = lazy(() => import('./views/EmailTemplates.jsx'));
+const CRMReports        = lazy(() => import('./views/CRMReports.jsx'));
 
 function fmtTimer(s) {
   return [
@@ -53,6 +64,10 @@ export default function App() {
   const [leads,      setLeads]      = usePersistedState('aos-leads',       seedLeads);
   const [campaigns,  setCampaigns]  = usePersistedState('aos-campaigns',   seedCampaigns);
   const [apifyRuns,  setApifyRuns]  = usePersistedState('aos-apify-runs',  []);
+  const [crmContacts, setCrmContacts] = usePersistedState('aos-crm-contacts', seedContacts);
+  const [crmCompanies, setCrmCompanies] = usePersistedState('aos-crm-companies', seedCompanies);
+  const [crmDeals,   setCrmDeals]   = usePersistedState('aos-crm-deals',    seedDeals);
+  const [emailTemplates, setEmailTemplates] = usePersistedState('aos-email-templates', seedEmailTemplates);
   const [setupDone,    setSetupDone]    = usePersistedState('aos-setup-done',    false);
   const [lastBriefing, setLastBriefing] = usePersistedState('aos-last-briefing', null);
   const [weeklyReport, setWeeklyReport] = usePersistedState('aos-weekly-report', null);
@@ -87,21 +102,27 @@ export default function App() {
     return () => clearInterval(timerRef.current);
   }, [timer.on]);
 
-  // ── Cmd+K shortcut ───────────────────────────────────────
-  useEffect(() => {
-    const handler = e => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setShowCmd(p => !p);
-      }
-      if (e.key === 'Escape') {
-        setShowNotif(false);
-        setShowCmd(false);
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, []);
+  // ── Keyboard shortcuts (hybrid Option C) ─────────────────
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
+  const shortcuts = useMemo(() => [
+    { key: 'ctrl+k', action: () => setShowCmd(p => !p), label: 'Command palette' },
+    { key: 'escape', action: () => { setShowNotif(false); setShowCmd(false); setShowShortcuts(false); }, label: 'Close' },
+    { key: 'g d', action: () => setTab('dashboard'), label: 'Go to Dashboard' },
+    { key: 'g t', action: () => setTab('tasks'),     label: 'Go to Tasks' },
+    { key: 'g a', action: () => setTab('agents'),    label: 'Go to Agents' },
+    { key: 'g i', action: () => setTab('ai'),        label: 'Go to AI' },
+    { key: 'g p', action: () => setTab('deals'),     label: 'Go to Pipeline' },
+    { key: 'g c', action: () => setTab('contacts'),  label: 'Go to Contacts' },
+    { key: 'g l', action: () => setTab('leads'),     label: 'Go to Leads' },
+    { key: 'g r', action: () => setTab('crm-reports'), label: 'Go to Reports' },
+    { key: 'g s', action: () => setTab('settings'),  label: 'Go to Settings' },
+    { key: 'g w', action: () => setTab('workflows'), label: 'Go to Workflows' },
+    { key: '?', action: () => setShowShortcuts(p => !p), label: 'Show shortcuts' },
+    { key: 'ctrl+n', action: () => setModal({ type: 'newTask' }), label: 'New task' },
+  ], []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useKeyboardShortcuts(shortcuts);
 
   // ── Update check + server health ─────────────────────────
   useEffect(() => {
@@ -134,13 +155,13 @@ export default function App() {
       if (data.error) throw new Error(data.error);
       setLastBriefing(data);
       setNotifs(p => [{
-        id: `autopilot-${Date.now()}`, read: false, time: 'Just now',
+        id: `autopilot-${crypto.randomUUID()}`, read: false, time: 'Just now',
         text: `🤖 Autopilot: ${data.briefing}`,
       }, ...p]);
     } catch (err) {
       console.error('Autopilot error:', err);
       setNotifs(p => [{
-        id: `autopilot-err-${Date.now()}`, read: false, time: 'Just now',
+        id: `autopilot-err-${crypto.randomUUID()}`, read: false, time: 'Just now',
         text: `⚠️ Autopilot failed: ${err.message}`,
       }, ...p]);
     } finally {
@@ -149,6 +170,8 @@ export default function App() {
   }
 
   // ── 7 AM daily trigger ───────────────────────────────────
+  const runAutopilotRef = useRef(runAutopilot);
+  runAutopilotRef.current = runAutopilot;
   useEffect(() => {
     const check = () => {
       const now = new Date();
@@ -161,11 +184,11 @@ export default function App() {
           if (b?.ranAt && new Date(b.ranAt).toDateString() === now.toDateString()) return;
         } catch { /* proceed */ }
       }
-      runAutopilot();
+      runAutopilotRef.current();
     };
     const id = setInterval(check, 60_000);
     return () => clearInterval(id);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Weekly report ─────────────────────────────────────────
   async function runWeeklyReport() {
@@ -187,7 +210,7 @@ export default function App() {
       if (data.error) throw new Error(data.error);
       setWeeklyReport(data);
       setNotifs(p => [{
-        id: `weekly-${Date.now()}`, read: false, time: 'Just now',
+        id: `weekly-${crypto.randomUUID()}`, read: false, time: 'Just now',
         text: `📊 Weekly Report: ${data.headline}`,
       }, ...p]);
     } catch (err) {
@@ -198,6 +221,8 @@ export default function App() {
   }
 
   // ── Monday 8 AM weekly report trigger ─────────────────────
+  const runWeeklyReportRef = useRef(runWeeklyReport);
+  runWeeklyReportRef.current = runWeeklyReport;
   useEffect(() => {
     const check = () => {
       const now = new Date();
@@ -209,25 +234,32 @@ export default function App() {
           if (r?.ranAt && new Date(r.ranAt).toDateString() === now.toDateString()) return;
         } catch { /* proceed */ }
       }
-      runWeeklyReport();
+      runWeeklyReportRef.current();
     };
     const id = setInterval(check, 60_000);
     return () => clearInterval(id);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Client health monitor ────────────────────────────────
+  const healthTasksCreatedRef = useRef(new Set());
   useEffect(() => {
     const atRisk = clients.filter(c => c.status === 'active' && (c.health ?? 100) < 75);
     atRisk.forEach(client => {
+      if (healthTasksCreatedRef.current.has(client.id)) return;
       const taskTitle = `Reconnect with ${client.name}`;
+      // Also check existing columns to avoid duplicates on reload
       const alreadyExists = Object.values(columns).flatMap(col => col.items).some(t => t.title === taskTitle);
-      if (alreadyExists) return;
+      if (alreadyExists) {
+        healthTasksCreatedRef.current.add(client.id);
+        return;
+      }
+      healthTasksCreatedRef.current.add(client.id);
       setColumns(p => ({
         ...p,
         backlog: {
           ...p.backlog,
           items: [...p.backlog.items, {
-            id:       `health-${client.id}-${Date.now()}`,
+            id:       `health-${client.id}-${crypto.randomUUID()}`,
             title:    taskTitle,
             priority: 'high',
             agent:    'Unassigned',
@@ -240,11 +272,11 @@ export default function App() {
         },
       }));
       setNotifs(p => [{
-        id: `health-${client.id}-${Date.now()}`, read: false, time: 'Just now',
+        id: `health-${client.id}-${crypto.randomUUID()}`, read: false, time: 'Just now',
         text: `⚠ ${client.name} health is ${client.health}% — reconnect task created`,
       }, ...p]);
     });
-  }, [clients]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [clients, columns]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Theme ────────────────────────────────────────────────
   useEffect(() => {
@@ -285,7 +317,7 @@ export default function App() {
       [form.column]: {
         ...p[form.column],
         items: [...p[form.column].items, {
-          id:       `t${Date.now()}`,
+          id:       `t-${crypto.randomUUID()}`,
           title:    form.title,
           priority: form.priority,
           agent:    form.agent || 'Unassigned',
@@ -353,6 +385,12 @@ export default function App() {
       setClients(seedClients); setPages(seedPages); setNotifs(seedNotifications);
       setAiMsgs([{ role: 'system', text: 'Agency AI online — full context loaded.' }]);
       setSettings(DEFAULT_SETTINGS); setProfile(DEFAULT_PROFILE);
+      setSchedule(seedSchedule);
+      setLeads(seedLeads); setCampaigns(seedCampaigns); setApifyRuns([]);
+      setCrmContacts(seedContacts); setCrmCompanies(seedCompanies);
+      setCrmDeals(seedDeals); setEmailTemplates(seedEmailTemplates);
+      setLastBriefing(null); setWeeklyReport(null);
+      healthTasksCreatedRef.current.clear();
     }
   }
 
@@ -367,11 +405,14 @@ export default function App() {
     agents, setAgents, columns, setColumns, workflows, setWorkflows,
     clients, setClients, pages, setPages, notifs, setNotifs,
     leads, setLeads, campaigns, setCampaigns, apifyRuns, setApifyRuns,
+    crmContacts, setCrmContacts, crmCompanies, setCrmCompanies,
+    crmDeals, setCrmDeals, emailTemplates, setEmailTemplates,
     allTasks, actAgents, mrr, clock,
     timer, startTimer, fmtTimer,
     toggleAgent, moveTask, addTask, toggleSub, deleteTask,
     aiMsgs, setAiMsgs,
     settings,
+    profile,
     setTab, setModal,
     lastBriefing, autopilotRunning, runAutopilot,
     weeklyReport, weeklyRunning, runWeeklyReport,
@@ -395,39 +436,85 @@ export default function App() {
         serverOnline={serverOnline}
       />
 
-      {showNotif && <Notifications notifs={notifs} />}
-      {showCmd   && <CommandPalette setTab={setTab} setShowCmd={setShowCmd} setModal={setModal} />}
-      {modal?.type === 'newTask' && (
-        <TaskModal agents={agents} columns={columns} onAdd={addTask} onClose={() => setModal(null)} />
-      )}
-      {!setupDone && (
-        <OnboardingWizard
-          settings={settings}
-          setSettings={setSettings}
-          profile={profile}
-          setProfile={setProfile}
-          onComplete={() => setSetupDone(true)}
-          onResetAll={onResetAll}
-        />
-      )}
+      <div className="app-body">
+        <Breadcrumb tab={tab} setTab={setTab} />
 
-      <main id="main-content" className="main-content-wrapper" tabIndex={-1}>
-        {tab === 'dashboard' && <Dashboard  {...shared} />}
-        {tab === 'tasks'     && <TaskBoard  {...shared} />}
-        {tab === 'agents'    && <AgentFleet {...shared} />}
-        {tab === 'workflows' && <Workflows  {...shared} />}
-        {tab === 'analytics' && <Analytics  {...shared} />}
-        {tab === 'clients'   && <Clients    {...shared} />}
-        {tab === 'schedule'  && <Schedule schedule={schedule} setSchedule={setSchedule} />}
-        {tab === 'knowledge' && <KnowledgeBase {...shared} />}
-        {tab === 'ai'        && <AIBrain    {...shared} />}
-        {tab === 'settings'  && <Settings settings={settings} setSettings={setSettings} onResetAll={onResetAll} clients={clients} columns={columns} />}
-        {tab === 'profile'   && <Profile  profile={profile} setProfile={setProfile} agents={agents} clients={clients} allTasks={allTasks} mrr={mrr} />}
-        {tab === 'leads'     && <LeadFinder leads={leads} setLeads={setLeads} campaigns={campaigns} apifyRuns={apifyRuns} setApifyRuns={setApifyRuns} clients={clients} setClients={setClients} setTab={setTab} />}
-        {tab === 'campaigns' && <Campaigns campaigns={campaigns} setCampaigns={setCampaigns} leads={leads} setLeads={setLeads} agents={agents} />}
-        {tab === 'wiki'      && <Wiki />}
-        {tab === 'updates'   && <Updates />}
-      </main>
+        {showNotif && <Notifications notifs={notifs} />}
+        {showCmd   && <CommandPalette setTab={setTab} setShowCmd={setShowCmd} setModal={setModal} />}
+        {modal?.type === 'newTask' && (
+          <TaskModal agents={agents} columns={columns} onAdd={addTask} onClose={() => setModal(null)} />
+        )}
+        {!setupDone && (
+          <OnboardingWizard
+            settings={settings}
+            setSettings={setSettings}
+            profile={profile}
+            setProfile={setProfile}
+            onComplete={() => setSetupDone(true)}
+            onResetAll={onResetAll}
+          />
+        )}
+
+        {/* Keyboard shortcuts help overlay */}
+        {showShortcuts && (
+          <div className="shortcuts-overlay" onClick={e => e.target === e.currentTarget && setShowShortcuts(false)}>
+            <div className="shortcuts-panel">
+              <div className="shortcuts-title">Keyboard Shortcuts</div>
+              <div className="shortcuts-group">
+                <div className="shortcuts-group__label">Navigation</div>
+                {shortcuts.filter(s => s.key.startsWith('g ')).map(s => (
+                  <div key={s.key} className="shortcut-row">
+                    <span>{s.label}</span>
+                    <kbd>{s.key.toUpperCase()}</kbd>
+                  </div>
+                ))}
+              </div>
+              <div className="shortcuts-group">
+                <div className="shortcuts-group__label">Actions</div>
+                <div className="shortcut-row"><span>Command palette</span><kbd>Ctrl+K</kbd></div>
+                <div className="shortcut-row"><span>New task</span><kbd>Ctrl+N</kbd></div>
+                <div className="shortcut-row"><span>Close / dismiss</span><kbd>Esc</kbd></div>
+                <div className="shortcut-row"><span>Show this help</span><kbd>?</kbd></div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <main id="main-content" className="main-content-wrapper" tabIndex={-1}>
+          <ErrorBoundary>
+            <Suspense fallback={<div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', color:'var(--muted)', fontFamily:'var(--mono)', fontSize:12 }}>Loading…</div>}>
+              {tab === 'dashboard' && <Dashboard  {...shared} />}
+              {tab === 'tasks'     && <TaskBoard  {...shared} />}
+              {tab === 'agents'    && <AgentFleet {...shared} />}
+              {tab === 'workflows' && <Workflows  {...shared} />}
+              {tab === 'analytics' && <Analytics  {...shared} />}
+              {tab === 'clients'   && <Clients    {...shared} />}
+              {tab === 'schedule'  && <Schedule schedule={schedule} setSchedule={setSchedule} />}
+              {tab === 'knowledge' && <KnowledgeBase {...shared} />}
+              {tab === 'ai'        && <AIBrain    {...shared} />}
+              {tab === 'settings'  && <Settings settings={settings} setSettings={setSettings} onResetAll={onResetAll} clients={clients} columns={columns} />}
+              {tab === 'profile'   && <Profile  profile={profile} setProfile={setProfile} agents={agents} clients={clients} allTasks={allTasks} mrr={mrr} />}
+              {tab === 'leads'     && <LeadFinder leads={leads} setLeads={setLeads} campaigns={campaigns} apifyRuns={apifyRuns} setApifyRuns={setApifyRuns} clients={clients} setClients={setClients} setTab={setTab} />}
+              {tab === 'campaigns' && <Campaigns campaigns={campaigns} setCampaigns={setCampaigns} leads={leads} setLeads={setLeads} agents={agents} />}
+              {tab === 'deals'     && <DealPipeline deals={crmDeals} setDeals={setCrmDeals} contacts={crmContacts} companies={crmCompanies} />}
+              {tab === 'contacts'  && <ContactsCompanies contacts={crmContacts} setContacts={setCrmContacts} companies={crmCompanies} setCompanies={setCrmCompanies} deals={crmDeals} />}
+              {tab === 'templates' && <EmailTemplates emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} profile={profile} />}
+              {tab === 'crm-reports' && <CRMReports deals={crmDeals} contacts={crmContacts} companies={crmCompanies} />}
+              {tab === 'wiki'      && <Wiki />}
+              {tab === 'updates'   && <Updates />}
+            </Suspense>
+          </ErrorBoundary>
+        </main>
+      </div>
+
+      <StatusBar
+        actAgents={actAgents}
+        serverOnline={serverOnline}
+        timer={timer}
+        fmtTimer={fmtTimer}
+        clock={clock}
+        setShowCmd={setShowCmd}
+      />
     </div>
   );
 }

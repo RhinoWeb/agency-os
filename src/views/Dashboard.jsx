@@ -1,13 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Dot, Badge, ProgressBar, ChartTooltip } from '../components/ui/index.jsx';
 import { C } from '../theme.js';
 import { revenueData, seedActivity, seedSchedule } from '../data.js';
-
-const now = new Date();
-const hr   = now.getHours();
-const greeting = hr < 12 ? 'morning' : hr < 18 ? 'afternoon' : 'evening';
-const dateStr  = now.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
 
 export default function Dashboard({
   agents, columns, setColumns, workflows, clients, setClients, allTasks, actAgents, mrr,
@@ -15,8 +10,64 @@ export default function Dashboard({
   leads, setLeads, setNotifs,
   lastBriefing, autopilotRunning, runAutopilot,
   weeklyReport, weeklyRunning, runWeeklyReport,
+  settings, profile,
 }) {
+  const now = new Date();
+  const hr   = now.getHours();
+  const greeting = hr < 12 ? 'morning' : hr < 18 ? 'afternoon' : 'evening';
+  const dateStr  = now.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+
   const [aiInput, setAiInput] = useState('');
+  const [chkDismissed,    setChkDismissed]    = useState(() => localStorage.getItem('aos-checklist-dismissed') === '1');
+  const [nudgeDismissed,  setNudgeDismissed]  = useState(() => localStorage.getItem('aos-nudge-dismissed') === '1');
+
+  function dismissChecklist() { localStorage.setItem('aos-checklist-dismissed', '1'); setChkDismissed(true); }
+  function dismissNudge()     { localStorage.setItem('aos-nudge-dismissed', '1');     setNudgeDismissed(true); }
+
+  // ── Setup checklist items (computed from live state) ──────────
+  const checklistItems = useMemo(() => [
+    {
+      id:    'ai',
+      label: 'Connect an AI provider',
+      done:  Object.values(settings?.apiKeys ?? {}).some(k => k?.trim()),
+      tab:   'settings',
+    },
+    {
+      id:    'profile',
+      label: 'Complete your profile',
+      done:  !!(profile?.email?.trim()),
+      tab:   'profile',
+    },
+    {
+      id:    'client',
+      label: 'Add your first client',
+      done:  clients.filter(c => c.status === 'active').length > 0,
+      tab:   'clients',
+    },
+    {
+      id:    'task',
+      label: 'Create your first task',
+      done:  allTasks.length > 0,
+      action: () => setModal({ type:'newTask' }),
+    },
+    {
+      id:    'autopilot',
+      label: 'Run an autopilot briefing',
+      done:  !!lastBriefing,
+      action: runAutopilot,
+    },
+    {
+      id:    'leads',
+      label: 'Import or scrape leads',
+      done:  (leads ?? []).length > 0,
+      tab:   'leads',
+    },
+  ], [settings, profile, clients, allTasks, leads, lastBriefing]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const doneCount  = checklistItems.filter(i => i.done).length;
+  const allDone    = doneCount === checklistItems.length;
+  const showNudge  = !nudgeDismissed && !profile?.email?.trim();
+  const showChk    = !chkDismissed && !allDone;
 
   // ── Smart automation derived data ───────────────────────────
   const hotLeads      = (leads ?? []).filter(l => l.leadScore >= 80 && l.replyStatus === 'positive');
@@ -24,7 +75,7 @@ export default function Dashboard({
 
   function graduateLead(lead) {
     setClients(p => [...p, {
-      id:          `c-${Date.now()}`,
+      id:          `c-${crypto.randomUUID()}`,
       name:        lead.company || lead.name,
       clientType:  'brand',
       status:      'active',
@@ -44,7 +95,7 @@ export default function Dashboard({
       backlog: {
         ...p.backlog,
         items: [...p.backlog.items, {
-          id:       `t${Date.now()}`,
+          id:       `t-${crypto.randomUUID()}`,
           title:    `Onboard new client: ${lead.company || lead.name}`,
           priority: 'high',
           agent:    'Unassigned',
@@ -56,7 +107,7 @@ export default function Dashboard({
         }],
       },
     }));
-    setNotifs(p => [{ id: `grad-${Date.now()}`, read: false, time: 'Just now', text: `🚀 ${lead.name} graduated to active client!` }, ...p]);
+    setNotifs(p => [{ id: `grad-${crypto.randomUUID()}`, read: false, time: 'Just now', text: `🚀 ${lead.name} graduated to active client!` }, ...p]);
   }
 
   const pipelineClients = clients.filter(c => c.status === 'pipeline');
@@ -90,6 +141,101 @@ export default function Dashboard({
 
   return (
     <section className="view" aria-labelledby="dash-title">
+
+      {/* ── Profile nudge ──────────────────────────────────────── */}
+      {showNudge && (
+        <div style={{
+          display:'flex', alignItems:'center', justifyContent:'space-between', gap:12,
+          padding:'10px 16px', marginBottom:16,
+          background:`${C.accent3}10`, border:`1px solid ${C.accent3}30`, borderRadius:10,
+        }}>
+          <span style={{ fontSize:12, color:'var(--muted)' }}>
+            👤 Complete your profile — add your email and avatar so your workspace feels personal.
+          </span>
+          <div style={{ display:'flex', gap:8, flexShrink:0 }}>
+            <button
+              className="btn btn--sm"
+              style={{ background:`${C.accent3}15`, borderColor:C.accent3, color:C.accent3 }}
+              onClick={() => setTab('profile')}
+            >
+              Go to Profile →
+            </button>
+            <button
+              onClick={dismissNudge}
+              style={{ background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:14, padding:'0 4px' }}
+              aria-label="Dismiss"
+            >×</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Setup checklist ────────────────────────────────────── */}
+      {showChk && (
+        <div className="card" style={{ marginBottom:20, padding:'16px 20px' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+              <span style={{ fontSize:13, fontWeight:700 }}>🚀 Get started</span>
+              <span style={{ fontSize:10, fontFamily:'var(--mono)', color:'var(--muted)' }}>
+                {doneCount}/{checklistItems.length} complete
+              </span>
+            </div>
+            <button
+              onClick={dismissChecklist}
+              style={{ background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:16, padding:'0 4px' }}
+              aria-label="Dismiss checklist"
+            >×</button>
+          </div>
+
+          {/* Progress bar */}
+          <div style={{ height:3, background:'var(--surface2)', borderRadius:2, marginBottom:14, overflow:'hidden' }}>
+            <div style={{
+              height:'100%', borderRadius:2,
+              width:`${(doneCount / checklistItems.length) * 100}%`,
+              background: `linear-gradient(90deg, ${C.accent3}, ${C.accent})`,
+              transition:'width 0.5s ease',
+            }}/>
+          </div>
+
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+            {checklistItems.map(item => (
+              <div
+                key={item.id}
+                style={{
+                  display:'flex', alignItems:'center', gap:8, padding:'7px 10px',
+                  borderRadius:7, background: item.done ? `${C.accent}06` : 'var(--surface2)',
+                  border:`1px solid ${item.done ? `${C.accent}20` : 'var(--border)'}`,
+                  cursor: item.done ? 'default' : 'pointer',
+                  opacity: item.done ? 0.6 : 1,
+                  transition:'all 0.15s',
+                }}
+                onClick={() => {
+                  if (item.done) return;
+                  if (item.action) item.action();
+                  else if (item.tab) setTab(item.tab);
+                }}
+              >
+                <span style={{
+                  width:16, height:16, borderRadius:'50%', flexShrink:0,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  fontSize:9, fontWeight:700,
+                  background: item.done ? `${C.accent}25` : 'var(--surface3)',
+                  border:`1px solid ${item.done ? C.accent : 'var(--border)'}`,
+                  color: item.done ? C.accent : 'var(--muted)',
+                }}>
+                  {item.done ? '✓' : ''}
+                </span>
+                <span style={{ fontSize:11, color: item.done ? 'var(--muted)' : 'var(--text)' }}>
+                  {item.label}
+                </span>
+                {!item.done && (
+                  <span style={{ marginLeft:'auto', fontSize:10, color:'var(--muted)' }}>→</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="view-header">
         <div>

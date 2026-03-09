@@ -4,9 +4,12 @@ import { C } from '../theme.js';
 
 const PRIORITY_COLOR = { high: C.red, medium: C.yellow, low: C.accent };
 
-export default function TaskBoard({ columns, timer, startTimer, fmtTimer, moveTask, toggleSub, deleteTask, setModal }) {
+export default function TaskBoard({ columns, timer, startTimer, fmtTimer, moveTask, toggleSub, deleteTask, setModal, agents }) {
   const [drag,         setDrag]         = useState(null);
   const [expandedTask, setExpandedTask] = useState(null);
+  const [agentFilter,  setAgentFilter]  = useState('All');
+
+  const agentNames = ['All', ...(agents ?? []).map(a => a.name)];
 
   return (
     <section className="view" aria-labelledby="board-title">
@@ -15,7 +18,24 @@ export default function TaskBoard({ columns, timer, startTimer, fmtTimer, moveTa
           <h1 id="board-title" className="view-title">Task Board</h1>
           <p className="view-subtitle">Drag between columns · Click to expand · Track time</p>
         </div>
-        <div style={{ display:'flex', gap:8 }}>
+        <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+          {/* Agent filter */}
+          <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+            {agentNames.map(name => (
+              <button
+                key={name}
+                onClick={() => setAgentFilter(name)}
+                style={{
+                  padding:'4px 10px', borderRadius:6, fontSize:10, cursor:'pointer',
+                  fontFamily:'var(--mono)', border:`1px solid ${agentFilter === name ? 'var(--accent)' : 'var(--border)'}`,
+                  background: agentFilter === name ? 'rgba(0,255,178,0.1)' : 'var(--surface2)',
+                  color: agentFilter === name ? 'var(--accent)' : 'var(--muted)',
+                }}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
           {timer.on && (
             <div className="timer-badge" aria-live="polite" aria-label={`Timer: ${fmtTimer(timer.sec)}`}>
               <span aria-hidden="true" style={{ animation:'pulse 1s infinite' }}>●</span>
@@ -44,16 +64,24 @@ export default function TaskBoard({ columns, timer, startTimer, fmtTimer, moveTa
             </div>
 
             <div className="column-body">
-              {col.items.map(task => {
+              {col.items
+                .filter(task => agentFilter === 'All' || task.agent === agentFilter)
+                .map(task => {
                 const expanded = expandedTask === task.id;
                 const sDone    = (task.subtasks ?? []).filter(s => s.d).length;
                 const sTotal   = (task.subtasks ?? []).length;
                 const isTimingThis = timer.on && timer.tid === task.id;
+                const isOverdue = (() => {
+                  if (!task.due) return false;
+                  const d = new Date(task.due);
+                  return !isNaN(d) && d < new Date() && ck !== 'done';
+                })();
 
                 return (
                   <article
                     key={task.id}
                     className={`task-card${isTimingThis ? ' task-card--timing' : ''}`}
+                    style={ isOverdue ? { borderColor: 'var(--red)', boxShadow:`0 0 0 1px var(--red)20` } : undefined }
                     draggable
                     onDragStart={() => setDrag({ id: task.id, from: ck })}
                     onDragEnd={()   => setDrag(null)}
@@ -61,7 +89,9 @@ export default function TaskBoard({ columns, timer, startTimer, fmtTimer, moveTa
                   >
                     <div className="task-card__header">
                       <Badge label={task.priority} color={PRIORITY_COLOR[task.priority]}/>
-                      <span style={{ fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)' }}>{task.due}</span>
+                      <span style={{ fontSize:9, color: isOverdue ? 'var(--red)' : 'var(--muted)', fontFamily:'var(--mono)' }}>
+                        {isOverdue && '⚠ '}{task.due}
+                      </span>
                     </div>
 
                     <div

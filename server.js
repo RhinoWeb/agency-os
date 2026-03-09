@@ -1,26 +1,36 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
-import { createHmac } from 'crypto';
+import { createHmac, randomUUID } from 'crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-
-try {
-  const env = readFileSync(join(__dirname, '.env'), 'utf8');
-  env.split('\n').forEach(line => {
-    const [k, ...v] = line.split('=');
-    if (k && v.length) process.env[k.trim()] = v.join('=').trim();
-  });
-} catch { /* .env not present — rely on real env vars */ }
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:4173'] }));
 app.use(express.json({ limit: '128kb' }));
+
+// ── Simple in-memory rate limiter ──────────────────────────────
+function rateLimit(windowMs, maxRequests) {
+  const hits = new Map();
+  return (req, res, next) => {
+    const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+    const now = Date.now();
+    const record = hits.get(ip) || { count: 0, resetAt: now + windowMs };
+    if (now > record.resetAt) { record.count = 0; record.resetAt = now + windowMs; }
+    record.count++;
+    hits.set(ip, record);
+    if (record.count > maxRequests) {
+      return res.status(429).json({ error: 'Too many requests. Please slow down.' });
+    }
+    next();
+  };
+}
 
 // ── Provider configs (all OpenAI-compatible except Anthropic) ─
 const PROVIDERS = {
@@ -96,8 +106,12 @@ async function streamAnthropic({ apiKey, model, systemContext, messages, res }) 
 }
 
 // ── /api/chat ─────────────────────────────────────────────────
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', rateLimit(60000, 30), async (req, res) => {
   const { messages, systemContext, provider = 'minimax', apiKey: clientKey, model: clientModel } = req.body;
+
+  if (!Array.isArray(messages)) {
+    return res.status(400).json({ error: 'messages must be an array' });
+  }
 
   const cfg    = PROVIDERS[provider] ?? PROVIDERS.minimax;
   const envKey = process.env[`${provider.toUpperCase()}_API_KEY`] ?? process.env.MINIMAX_API_KEY;
@@ -114,6 +128,10 @@ app.post('/api/chat', async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
+  // Abort upstream requests when client disconnects
+  let clientDisconnected = false;
+  req.on('close', () => { clientDisconnected = true; });
+
   try {
     if (cfg.format === 'anthropic') {
       await streamAnthropic({ apiKey, model, systemContext, messages, res });
@@ -127,8 +145,10 @@ app.post('/api/chat', async (req, res) => {
       await streamOpenAI({ url: cfg.url, apiKey, model, messages: apiMessages, res });
     }
   } catch (err) {
-    res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
-    res.end();
+    if (!clientDisconnected) {
+      res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
+      res.end();
+    }
   }
 });
 
@@ -177,7 +197,7 @@ function buildAutopilotContext({ agents, allTasks, clients, leads, campaigns }) 
 }
 
 // ── /api/autopilot/briefing ───────────────────────────────────
-app.post('/api/autopilot/briefing', async (req, res) => {
+app.post('/api/autopilot/briefing', rateLimit(60000, 5), async (req, res) => {
   const { agents, allTasks, clients, leads, campaigns,
           provider = 'minimax', apiKey: clientKey, model: clientModel } = req.body;
 
@@ -232,7 +252,9 @@ Keep flagged to real risks only (at-risk clients, overdue tasks, hot leads going
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) return res.status(502).json({ error: 'AI returned no JSON', raw: text.slice(0, 200) });
 
-    const result = JSON.parse(match[0]);
+    let result;
+    try { result = JSON.parse(match[0]); }
+    catch { return res.status(502).json({ error: 'AI returned invalid JSON', raw: match[0].slice(0, 300) }); }
     res.json({ ...result, ranAt: new Date().toISOString() });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -240,7 +262,7 @@ Keep flagged to real risks only (at-risk clients, overdue tasks, hot leads going
 });
 
 // ── /api/report/weekly ────────────────────────────────────────
-app.post('/api/report/weekly', async (req, res) => {
+app.post('/api/report/weekly', rateLimit(60000, 5), async (req, res) => {
   const { agents, allTasks, clients, leads, campaigns, mrr,
           provider = 'minimax', apiKey: clientKey, model: clientModel } = req.body;
 
@@ -295,7 +317,9 @@ Return ONLY valid JSON (no markdown, no explanation) with this exact shape:
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) return res.status(502).json({ error: 'AI returned no JSON', raw: text.slice(0, 200) });
 
-    const result = JSON.parse(match[0]);
+    let result;
+    try { result = JSON.parse(match[0]); }
+    catch { return res.status(502).json({ error: 'AI returned invalid JSON', raw: match[0].slice(0, 300) }); }
     res.json({ ...result, ranAt: new Date().toISOString() });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -345,7 +369,12 @@ app.get('/api/version', async (req, res) => {
   });
 });
 
-app.post('/api/apply-update', (req, res) => {
+app.post('/api/apply-update', rateLimit(60000, 2), (req, res) => {
+  // Only allow updates from localhost to prevent remote code execution
+  const ip = req.ip || req.socket?.remoteAddress || '';
+  if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(ip)) {
+    return res.status(403).json({ ok: false, error: 'Updates can only be triggered locally' });
+  }
   try {
     execSync('git pull origin main', { stdio: 'pipe', timeout: 30000 });
     execSync('npm install --silent', { stdio: 'pipe', timeout: 120000 });
@@ -405,8 +434,20 @@ function extractPageContent(html, baseUrl) {
   return { title, description, headings, links, text };
 }
 
+// ── SSRF protection — block private/reserved IPs and non-HTTP protocols
+function isAllowedUrl(rawUrl) {
+  try {
+    const u = new URL(rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`);
+    if (!['http:', 'https:'].includes(u.protocol)) return false;
+    const h = u.hostname.toLowerCase();
+    if (/^(localhost|127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|0\.|::1$|fc|fd|\[::1\])/i.test(h)) return false;
+    return true;
+  } catch { return false; }
+}
+
 async function fetchPage(url) {
   if (!url.startsWith('http')) url = 'https://' + url;
+  if (!isAllowedUrl(url)) throw new Error('URL not allowed: private/reserved addresses are blocked');
   const ctrl = new AbortController();
   const tid  = setTimeout(() => ctrl.abort(), 12000);
   try {
@@ -452,7 +493,7 @@ async function llmOnce({ provider, apiKey, model, systemPrompt, userPrompt }) {
 }
 
 // ── /api/browse — fetch & parse a URL ────────────────────────
-app.post('/api/browse', async (req, res) => {
+app.post('/api/browse', rateLimit(60000, 20), async (req, res) => {
   let { url } = req.body;
   if (!url) return res.status(400).json({ error: 'URL required' });
   try {
@@ -466,7 +507,7 @@ app.post('/api/browse', async (req, res) => {
 });
 
 // ── /api/ai-browse — AI-directed agentic browse (SSE) ────────
-app.post('/api/ai-browse', async (req, res) => {
+app.post('/api/ai-browse', rateLimit(60000, 10), async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -632,7 +673,10 @@ app.get('/api/gcal/auth', (req, res) => {
 // Step 2: Google redirects here with ?code=
 app.get('/api/gcal/callback', async (req, res) => {
   const { code, error } = req.query;
-  if (error || !code) return res.send(`<script>window.close();</script><p>Auth failed: ${error ?? 'no code'}</p>`);
+  if (error || !code) {
+    const safeError = (error ?? 'no code').replace(/[<>&"']/g, c => `&#${c.charCodeAt(0)};`);
+    return res.send(`<script>window.close();</script><p>Auth failed: ${safeError}</p>`);
+  }
 
   const clientId     = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -648,7 +692,7 @@ app.get('/api/gcal/callback', async (req, res) => {
     const d = await r.json();
     saveGcalToken({ access_token: d.access_token, refresh_token: d.refresh_token, expires_at: Date.now() + d.expires_in * 1000 });
     // Close the popup and reload parent
-    res.send('<script>if(window.opener){window.opener.postMessage("gcal-connected","*");window.close();}else{window.location="http://localhost:5173";}</script>Connected! You can close this window.');
+    res.send('<script>if(window.opener){window.opener.postMessage("gcal-connected","http://localhost:5173");window.close();}else{window.location="http://localhost:5173";}</script>Connected! You can close this window.');
   } catch (err) {
     res.send(`<p>Error: ${err.message}</p>`);
   }
@@ -728,9 +772,9 @@ app.post('/api/apify/run', async (req, res) => {
   const { actorId, input } = req.body;
   if (!actorId) return res.status(400).json({ error: 'actorId required' });
   try {
-    const r = await fetch(`${APIFY_BASE}/acts/${encodeURIComponent(actorId)}/runs?token=${key}`, {
+    const r = await fetch(`${APIFY_BASE}/acts/${encodeURIComponent(actorId)}/runs`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
       body: JSON.stringify(input ?? {}),
     });
     if (!r.ok) { const e = await r.json().catch(() => ({})); return res.status(r.status).json({ error: e.error?.message ?? 'Apify error' }); }
@@ -746,7 +790,9 @@ app.get('/api/apify/status/:runId', async (req, res) => {
   const key = process.env.APIFY_API_KEY;
   if (!key) return res.status(400).json({ error: 'APIFY_API_KEY not set' });
   try {
-    const r = await fetch(`${APIFY_BASE}/actor-runs/${req.params.runId}?token=${key}`);
+    const r = await fetch(`${APIFY_BASE}/actor-runs/${req.params.runId}`, {
+      headers: { 'Authorization': `Bearer ${key}` },
+    });
     if (!r.ok) { const e = await r.json().catch(() => ({})); return res.status(r.status).json({ error: e.error?.message ?? 'Apify error' }); }
     const d = await r.json();
     res.json({ status: d.data.status, datasetId: d.data.defaultDatasetId, stats: d.data.stats });
@@ -761,7 +807,9 @@ app.get('/api/apify/results/:datasetId', async (req, res) => {
   if (!key) return res.status(400).json({ error: 'APIFY_API_KEY not set' });
   const limit = Math.min(Number(req.query.limit ?? 200), 500);
   try {
-    const r = await fetch(`${APIFY_BASE}/datasets/${req.params.datasetId}/items?token=${key}&limit=${limit}&clean=true`);
+    const r = await fetch(`${APIFY_BASE}/datasets/${req.params.datasetId}/items?limit=${limit}&clean=true`, {
+      headers: { 'Authorization': `Bearer ${key}` },
+    });
     if (!r.ok) return res.status(r.status).json({ error: 'Apify dataset error' });
     const items = await r.json();
     res.json({ items, count: items.length });
@@ -776,7 +824,7 @@ app.post('/api/apify/normalize', async (req, res) => {
   if (!Array.isArray(items)) return res.status(400).json({ error: 'items array required' });
 
   const leads = items.map((item, i) => ({
-    id:          `l-apify-${Date.now()}-${i}`,
+    id:          `l-apify-${randomUUID()}`,
     name:        item.fullName ?? item.name ?? `${item.firstName ?? ''} ${item.lastName ?? ''}`.trim() ?? 'Unknown',
     company:     item.companyName ?? item.company ?? '',
     title:       item.jobTitle ?? item.title ?? item.headline ?? '',
@@ -793,7 +841,7 @@ app.post('/api/apify/normalize', async (req, res) => {
     replyStatus: 'none',
     notes:       '',
     since:       new Date().toISOString().split('T')[0],
-    color:       '#00FFB2',
+    color:       '#0066FF',
   }));
 
   res.json({ leads, count: leads.length });
@@ -812,9 +860,9 @@ app.post('/api/instantly/campaign', async (req, res) => {
   const { name, sequence } = req.body;
   if (!name || !sequence) return res.status(400).json({ error: 'name and sequence required' });
   try {
-    const r = await fetch(`${INSTANTLY_BASE}/campaign/create?api_key=${key}`, {
+    const r = await fetch(`${INSTANTLY_BASE}/campaign/create`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
       body: JSON.stringify({ name, email_list: [], sequences: [{ steps: sequence }] }),
     });
     const d = await r.json();
@@ -832,9 +880,9 @@ app.post('/api/instantly/leads', async (req, res) => {
   const { campaignId, leads } = req.body;
   if (!campaignId || !Array.isArray(leads)) return res.status(400).json({ error: 'campaignId and leads[] required' });
   try {
-    const r = await fetch(`${INSTANTLY_BASE}/lead/add?api_key=${key}`, {
+    const r = await fetch(`${INSTANTLY_BASE}/lead/add`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
       body: JSON.stringify({ campaign_id: campaignId, leads: leads.map(l => ({
         email:      l.email,
         first_name: l.name?.split(' ')[0] ?? '',
@@ -857,7 +905,9 @@ app.get('/api/instantly/stats/:campaignId', async (req, res) => {
   const key = process.env.INSTANTLY_API_KEY;
   if (!key) return res.status(400).json({ error: 'INSTANTLY_API_KEY not set' });
   try {
-    const r = await fetch(`${INSTANTLY_BASE}/analytics/campaign/summary?api_key=${key}&campaign_id=${req.params.campaignId}`);
+    const r = await fetch(`${INSTANTLY_BASE}/analytics/campaign/summary?campaign_id=${req.params.campaignId}`, {
+      headers: { 'Authorization': `Bearer ${key}` },
+    });
     const d = await r.json();
     if (!r.ok) return res.status(r.status).json({ error: d.message ?? 'Instantly error' });
     res.json(d);
@@ -939,7 +989,7 @@ app.post('/api/zoom/meeting', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 
 // Generate a 12-step cold email sequence via AI
-app.post('/api/ai/sequence', async (req, res) => {
+app.post('/api/ai/sequence', rateLimit(60000, 10), async (req, res) => {
   const { brief, provider = 'minimax' } = req.body;
   if (!brief) return res.status(400).json({ error: 'brief required' });
 
@@ -975,8 +1025,10 @@ Keep bodies under 120 words. Use {firstName}, {company}, {industry} as variables
     if (!r.ok) return res.status(r.status).json({ error: d.error?.message ?? 'AI error' });
     const text = d.choices?.[0]?.message?.content ?? '';
     const match = text.match(/\[[\s\S]*\]/);
-    if (!match) return res.status(500).json({ error: 'AI did not return valid JSON array', raw: text });
-    const sequence = JSON.parse(match[0]);
+    if (!match) return res.status(500).json({ error: 'AI did not return valid JSON array', raw: text.slice(0, 300) });
+    let sequence;
+    try { sequence = JSON.parse(match[0]); }
+    catch { return res.status(500).json({ error: 'AI returned invalid JSON array', raw: match[0].slice(0, 300) }); }
     res.json({ sequence });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -984,7 +1036,7 @@ Keep bodies under 120 words. Use {firstName}, {company}, {industry} as variables
 });
 
 // Classify a reply intent
-app.post('/api/ai/classify-reply', async (req, res) => {
+app.post('/api/ai/classify-reply', rateLimit(60000, 20), async (req, res) => {
   const { replyText, provider = 'minimax' } = req.body;
   if (!replyText) return res.status(400).json({ error: 'replyText required' });
 
@@ -1012,8 +1064,11 @@ Respond with ONLY a JSON object: { "intent": "POSITIVE", "confidence": 0.95, "su
     if (!r.ok) return res.status(r.status).json({ error: d.error?.message ?? 'AI error' });
     const text = d.choices?.[0]?.message?.content ?? '';
     const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return res.status(500).json({ error: 'AI did not return valid JSON', raw: text });
-    res.json(JSON.parse(match[0]));
+    if (!match) return res.status(500).json({ error: 'AI did not return valid JSON', raw: text.slice(0, 300) });
+    let parsed;
+    try { parsed = JSON.parse(match[0]); }
+    catch { return res.status(500).json({ error: 'AI returned invalid JSON', raw: match[0].slice(0, 300) }); }
+    res.json(parsed);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

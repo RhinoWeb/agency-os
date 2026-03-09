@@ -17,12 +17,12 @@ const TOOL_CATS = [
   { id:'ai',         label:'AI Models',      color:'#7B61FF' },
   { id:'image',      label:'Image & Video',  color:'#FF6B35' },
   { id:'voice',      label:'Voice & Audio',  color:'#00B4D8' },
-  { id:'content',    label:'Content & SEO',  color:'#00FFB2' },
+  { id:'content',    label:'Content & SEO',  color:'#0066FF' },
   { id:'outreach',   label:'Outreach',       color:'#EC4899' },
   { id:'automation', label:'Automation',     color:'#FBBF24' },
 ];
 
-const CAT_COLOR = { ai:'#7B61FF', image:'#FF6B35', voice:'#00B4D8', content:'#00FFB2', outreach:'#EC4899', automation:'#FBBF24' };
+const CAT_COLOR = { ai:'#004ACC', image:'#3388FF', voice:'#66AAFF', content:'#0066FF', outreach:'#99BBFF', automation:'#FF9100' };
 
 const TOOL_VAULT = [
   // AI Models

@@ -1,8 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
+import { useFocusTrap } from '../../hooks/useFocusTrap.js';
 
 export default function CommandPalette({ setTab, setShowCmd, setModal }) {
   const [query, setQuery] = useState('');
+  const [activeIdx, setActiveIdx] = useState(0);
   const inputRef = useRef(null);
+  const listRef = useRef(null);
+  const trapRef = useFocusTrap();
 
   const actions = [
     { label: 'New Task',        icon: '📋', action: () => { setModal({ type: 'newTask' }); setShowCmd(false); } },
@@ -19,11 +23,37 @@ export default function CommandPalette({ setTab, setShowCmd, setModal }) {
 
   const filtered = actions.filter(a => a.label.toLowerCase().includes(query.toLowerCase()));
 
+  // Reset active index when query changes
+  useEffect(() => { setActiveIdx(0); }, [query]);
+
   useEffect(() => { inputRef.current?.focus(); }, []);
 
+  // Scroll active item into view
+  useEffect(() => {
+    const el = listRef.current?.children[activeIdx];
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }, [activeIdx]);
+
   function handleKeyDown(e) {
-    if (e.key === 'Escape') setShowCmd(false);
+    if (e.key === 'Escape') { setShowCmd(false); return; }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIdx(i => (i + 1) % (filtered.length || 1));
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIdx(i => (i - 1 + (filtered.length || 1)) % (filtered.length || 1));
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filtered[activeIdx]) filtered[activeIdx].action();
+      return;
+    }
   }
+
+  const activeId = filtered.length > 0 ? `cmd-item-${activeIdx}` : undefined;
 
   return (
     <div
@@ -33,6 +63,7 @@ export default function CommandPalette({ setTab, setShowCmd, setModal }) {
       aria-label="Command palette"
       onClick={() => setShowCmd(false)}
       onKeyDown={handleKeyDown}
+      ref={trapRef}
     >
       <div className="cmd-palette" onClick={e => e.stopPropagation()}>
         <div className="cmd-input-wrap">
@@ -47,17 +78,18 @@ export default function CommandPalette({ setTab, setShowCmd, setModal }) {
             aria-expanded="true"
             aria-controls="cmd-list"
             aria-autocomplete="list"
+            aria-activedescendant={activeId}
           />
         </div>
-        <ul className="cmd-list" id="cmd-list" role="listbox">
+        <ul className="cmd-list" id="cmd-list" role="listbox" ref={listRef}>
           {filtered.map((a, i) => (
             <li
               key={i}
-              className="cmd-item"
+              id={`cmd-item-${i}`}
+              className={`cmd-item${i === activeIdx ? ' cmd-item--active' : ''}`}
               role="option"
-              tabIndex={0}
+              aria-selected={i === activeIdx}
               onClick={a.action}
-              onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && a.action()}
             >
               <span style={{ fontSize: 16, width: 24 }} aria-hidden="true">{a.icon}</span>
               <span style={{ fontSize: 13, fontFamily: 'var(--sans)' }}>{a.label}</span>

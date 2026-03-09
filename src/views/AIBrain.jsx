@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 // ── 50 Prompt Library ──────────────────────────────────────
 const CATEGORIES = [
   {
-    id: 'growth', label: 'Growth', icon: '🚀', color: '#00FFB2',
+    id: 'growth', label: 'Growth', icon: '🚀', color: '#0066FF',
     prompts: [
       { icon:'🎯', title:'Top upsell opportunities',   desc:'Find hidden revenue in existing accounts',      text:'Looking at our active clients and their current services, identify the top 3 upsell opportunities right now. Which clients are underserved, what additional services would deliver the most value, and what is the potential MRR increase for each?' },
       { icon:'📞', title:'Who to call today',           desc:'Prioritize your pipeline outreach',             text:'Based on our pipeline clients and their scheduled meetings, which prospect should I prioritize contacting today? Give me their background, likely objections, and 5 talking points I should prepare.' },

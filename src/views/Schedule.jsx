@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Badge, ProgressBar } from '../components/ui/index.jsx';
 import { C } from '../theme.js';
+import { useFocusTrap } from '../hooks/useFocusTrap.js';
 
 const TYPE_COLORS = {
   'meeting':   C.yellow,
@@ -17,6 +18,7 @@ function EventModal({ onAdd, onClose }) {
   const [dur,   setDur]   = useState(60);
   const [type,  setType]  = useState('meeting');
   const inputRef = useRef(null);
+  const trapRef = useFocusTrap();
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
@@ -28,7 +30,7 @@ function EventModal({ onAdd, onClose }) {
     const h12  = ((h % 12) || 12);
     const label = `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
     onAdd({
-      id:    `ev${Date.now()}`,
+      id:    crypto.randomUUID(),
       title: title.trim(),
       time:  label,
       _sort: h * 60 + m,
@@ -46,6 +48,7 @@ function EventModal({ onAdd, onClose }) {
       aria-labelledby="ev-modal-title"
       onClick={onClose}
       onKeyDown={e => e.key === 'Escape' && onClose()}
+      ref={trapRef}
     >
       <div className="modal" onClick={e => e.stopPropagation()}>
         <h2 id="ev-modal-title" className="modal-title">Add Event</h2>
@@ -159,7 +162,7 @@ export default function Schedule({ schedule, setSchedule }) {
   // Normalize legacy events (seed data without id/_sort)
   useEffect(() => {
     if (schedule.some(e => !e.id)) {
-      setSchedule(p => p.map((e, i) => {
+      setSchedule(p => p.map((e) => {
         if (e.id) return e;
         // Parse "HH:MM" 24h time to _sort minutes
         const [h, m] = e.time.split(':').map(Number);
@@ -167,7 +170,7 @@ export default function Schedule({ schedule, setSchedule }) {
         const h12  = ((h % 12) || 12);
         return {
           ...e,
-          id:    `ev-m${Date.now()}-${i}`,
+          id:    crypto.randomUUID(),
           _sort: h * 60 + (m || 0),
           time:  `${h12}:${String(m || 0).padStart(2,'0')} ${ampm}`,
         };

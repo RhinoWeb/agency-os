@@ -118,7 +118,26 @@ export default function KnowledgeBase({ pages, setPages }) {
         <div className="section-label mb-8">{search ? `Results (${filtered.length})` : 'All Pages'}</div>
         <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
           {filtered.map(pg => <PageRow key={pg.id} pg={pg} onSelect={setSelectedId}/>)}
-          {filtered.length === 0 && (
+          {filtered.length === 0 && pages.length === 0 && !search && (
+            <div style={{ padding:40, textAlign:'center', color:'var(--muted)' }}>
+              <div style={{ fontSize:32, marginBottom:12 }}>◎</div>
+              <div style={{ fontSize:14, fontWeight:600, marginBottom:6, color:'var(--text)' }}>No documents yet</div>
+              <div style={{ fontSize:12, lineHeight:1.6, marginBottom:16 }}>
+                Centralise your SOPs, playbooks, meeting notes, and client docs.
+              </div>
+              <button
+                className="btn btn--outline-accent"
+                onClick={() => {
+                  const id = `p-${crypto.randomUUID()}`;
+                  setPages(p => [...p, { id, title:'Untitled', icon:'📝', updated:'Just now', type:'doc', starred:false, content:'' }]);
+                  setSelectedId(id);
+                }}
+              >
+                + Create first page
+              </button>
+            </div>
+          )}
+          {filtered.length === 0 && search && (
             <div style={{ padding:'20px', textAlign:'center', color:'var(--muted)', fontSize:12 }}>
               No pages match "{search}"
             </div>

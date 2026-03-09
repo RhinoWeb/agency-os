@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { Badge, Dot } from '../components/ui/index.jsx';
 import { C } from '../theme.js';
+import { useFocusTrap } from '../hooks/useFocusTrap.js';
 
 function WorkflowModal({ onAdd, onClose }) {
   const [name,    setName]    = useState('');
   const [trigger, setTrigger] = useState('');
   const [steps,   setSteps]   = useState(['']);
   const inputRef = useRef(null);
+  const trapRef = useFocusTrap();
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
@@ -19,7 +21,7 @@ function WorkflowModal({ onAdd, onClose }) {
     const validSteps = steps.map(s => s.trim()).filter(Boolean);
     if (!name.trim() || validSteps.length === 0) return;
     onAdd({
-      id:          `w${Date.now()}`,
+      id:          crypto.randomUUID(),
       name:        name.trim(),
       trigger:     trigger.trim() || 'Manual trigger',
       steps:       validSteps,
@@ -39,6 +41,7 @@ function WorkflowModal({ onAdd, onClose }) {
       aria-labelledby="wf-modal-title"
       onClick={onClose}
       onKeyDown={e => e.key === 'Escape' && onClose()}
+      ref={trapRef}
     >
       <div className="modal" onClick={e => e.stopPropagation()}>
         <h2 id="wf-modal-title" className="modal-title">New Workflow</h2>
@@ -232,6 +235,32 @@ export default function Workflows({ workflows, setWorkflows }) {
       </header>
 
       <div role="list" aria-label="Active workflows">
+        {activeWorkflows.length === 0 && (
+          <div className="card" style={{ padding:40, textAlign:'center', color:'var(--muted)', marginBottom:14 }}>
+            <div style={{ fontSize:32, marginBottom:12 }}>⚡</div>
+            <div style={{ fontSize:14, fontWeight:600, marginBottom:6, color:'var(--text)' }}>No active workflows yet</div>
+            <div style={{ fontSize:12, marginBottom:20, lineHeight:1.6 }}>
+              Chain your agents into automated pipelines — content, reporting, outreach, and more.
+            </div>
+            <div style={{ display:'flex', gap:8, justifyContent:'center', flexWrap:'wrap', marginBottom:16 }}>
+              {[
+                { label:'Blog → Social → Email', emoji:'✍️' },
+                { label:'Weekly Client Report',  emoji:'📊' },
+                { label:'Lead Nurture Sequence', emoji:'📨' },
+              ].map(t => (
+                <span key={t.label} style={{
+                  padding:'5px 12px', borderRadius:20, fontSize:11, fontFamily:'var(--mono)',
+                  background:`${C.accent5}12`, border:`1px solid ${C.accent5}30`, color:C.accent5, cursor:'default',
+                }}>
+                  {t.emoji} {t.label}
+                </span>
+              ))}
+            </div>
+            <div style={{ fontSize:11, color:'var(--muted)' }}>
+              ↓ Use a template below or create a custom workflow
+            </div>
+          </div>
+        )}
         {activeWorkflows.map(w => <WorkflowCard key={w.id} w={w}/>)}
       </div>
 
