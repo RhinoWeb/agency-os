@@ -3,89 +3,89 @@
 // Static layout styles live in index.css via CSS custom properties.
 
 export const C = {
-  accent:  '#0066FF',
-  accent2: '#3388FF',
-  accent3: '#004ACC',
-  accent4: '#66AAFF',
-  accent5: '#99BBFF',
-  bg:      '#000000',
-  surface: '#0A0A0A',
-  surface2:'#141414',
-  surface3:'#1C1C1C',
-  border:  '#222222',
-  border2: '#333333',
-  text:    '#EDEDED',
-  dim:     '#999999',
-  muted:   '#666666',
-  red:     '#FF1744',
-  yellow:  '#FF9100',
-  green:   '#00C853',
+  accent:  '#7C6AFF',
+  accent2: '#9B8AFF',
+  accent3: '#5B4CD9',
+  accent4: '#B0A4FF',
+  accent5: '#3D3599',
+  bg:      '#0C0D12',
+  surface: '#14161E',
+  surface2:'#1B1D27',
+  surface3:'#232636',
+  border:  '#282C3C',
+  border2: '#363B4E',
+  text:    '#EAEBF0',
+  dim:     '#A2A5B9',
+  muted:   '#6E7289',
+  red:     '#F87171',
+  yellow:  '#FBBF24',
+  green:   '#34D399',
 };
 
-export const MONO = "'JetBrains Mono','Fira Code',monospace";
-export const SANS = "'Inter','DM Sans',sans-serif";
+export const MONO = "'JetBrains Mono','Fira Code',ui-monospace,monospace";
+export const SANS = "'Outfit',system-ui,-apple-system,sans-serif";
 
 // ── Color Themes ──────────────────────────────────────────────
 // Each theme defines ALL CSS custom properties so switching is clean.
 export const THEMES = [
   {
-    id: 'precision', name: 'Precision', emoji: '◇', description: 'Clean blue on true black',
-    preview: ['#000000', '#0066FF', '#3388FF', '#004ACC'],
+    id: 'obsidian', name: 'Obsidian', emoji: '◇', description: 'Warm indigo on charcoal',
+    preview: ['#0C0D12', '#7C6AFF', '#9B8AFF', '#5B4CD9'],
     vars: {
-      '--accent':'#0066FF','--accent2':'#3388FF','--accent3':'#004ACC','--accent4':'#66AAFF','--accent5':'#99BBFF',
-      '--bg':'#000000','--surface':'#0A0A0A','--surface2':'#141414','--surface3':'#1C1C1C',
-      '--border':'#222222','--border2':'#333333',
-      '--text':'#EDEDED','--dim':'#999999','--muted':'#666666',
+      '--accent':'#7C6AFF','--accent2':'#9B8AFF','--accent3':'#5B4CD9','--accent4':'#B0A4FF','--accent5':'#3D3599',
+      '--bg':'#0C0D12','--surface':'#14161E','--surface2':'#1B1D27','--surface3':'#232636',
+      '--border':'#282C3C','--border2':'#363B4E',
+      '--text':'#EAEBF0','--dim':'#A2A5B9','--muted':'#6E7289',
     },
   },
   {
     id: 'midnight', name: 'Midnight', emoji: '🌙', description: 'Deep indigo & violet',
-    preview: ['#050510', '#818CF8', '#60A5FA', '#A78BFA'],
+    preview: ['#080814', '#818CF8', '#60A5FA', '#A78BFA'],
     vars: {
       '--accent':'#818CF8','--accent2':'#A78BFA','--accent3':'#60A5FA','--accent4':'#34D399','--accent5':'#F472B6',
-      '--bg':'#050510','--surface':'#0A0A1A','--surface2':'#12122A','--surface3':'#1A1A3A',
-      '--border':'#252545','--border2':'#353560',
-      '--text':'#E2E8F0','--dim':'#A5B4FC','--muted':'#6366F1',
+      '--bg':'#080814','--surface':'#0E1020','--surface2':'#161A2E','--surface3':'#1E223C',
+      '--border':'#282D48','--border2':'#383E60',
+      '--text':'#E2E4F0','--dim':'#A5B0D0','--muted':'#6670A0',
     },
   },
   {
     id: 'forest', name: 'Forest', emoji: '🌲', description: 'Deep emerald & sage',
-    preview: ['#040E0C', '#34D399', '#A78BFA', '#F59E0B'],
+    preview: ['#060E0C', '#34D399', '#A78BFA', '#F59E0B'],
     vars: {
-      '--accent':'#34D399','--accent2':'#F59E0B','--accent3':'#A78BFA','--accent4':'#60A5FA','--accent5':'#F472B6',
-      '--bg':'#040E0C','--surface':'#0A1A18','--surface2':'#102824','--surface3':'#183630',
-      '--border':'#1E3D35','--border2':'#2A5248',
-      '--text':'#D1FAE5','--dim':'#6EE7B7','--muted':'#3D7A6A',
+      '--accent':'#34D399','--accent2':'#5FE8B8','--accent3':'#22A876','--accent4':'#60A5FA','--accent5':'#F472B6',
+      '--bg':'#060E0C','--surface':'#0E1A18','--surface2':'#142824','--surface3':'#1C3630',
+      '--border':'#223D35','--border2':'#2E5248',
+      '--text':'#D8F0E5','--dim':'#7EC8A8','--muted':'#4A7A6A',
     },
   },
   {
     id: 'sunset', name: 'Sunset', emoji: '🌅', description: 'Warm amber & crimson',
-    preview: ['#0A0604', '#F97316', '#FBBF24', '#EF4444'],
+    preview: ['#0C0804', '#F97316', '#FBBF24', '#EF4444'],
     vars: {
-      '--accent':'#F97316','--accent2':'#EF4444','--accent3':'#FBBF24','--accent4':'#FB923C','--accent5':'#F472B6',
-      '--bg':'#0A0604','--surface':'#141008','--surface2':'#1E1808','--surface3':'#28200C',
-      '--border':'#3D2510','--border2':'#522F12',
-      '--text':'#FEF3C7','--dim':'#FCD34D','--muted':'#78401A',
+      '--accent':'#F97316','--accent2':'#FBBF24','--accent3':'#EF4444','--accent4':'#FB923C','--accent5':'#F472B6',
+      '--bg':'#0C0804','--surface':'#161008','--surface2':'#201A0C','--surface3':'#2A2210',
+      '--border':'#3D2814','--border2':'#523818',
+      '--text':'#F8F0E0','--dim':'#D4B88A','--muted':'#806030',
     },
   },
   {
     id: 'arctic', name: 'Arctic', emoji: '❄️', description: 'Cool cyan & ice blue',
-    preview: ['#040810', '#38BDF8', '#818CF8', '#34D399'],
+    preview: ['#060A14', '#38BDF8', '#818CF8', '#34D399'],
     vars: {
-      '--accent':'#38BDF8','--accent2':'#818CF8','--accent3':'#34D399','--accent4':'#F472B6','--accent5':'#FBBF24',
-      '--bg':'#040810','--surface':'#0A1420','--surface2':'#101E2E','--surface3':'#18283E',
-      '--border':'#1A3048','--border2':'#224060',
-      '--text':'#E0F2FE','--dim':'#7DD3FC','--muted':'#1E4A6A',
+      '--accent':'#38BDF8','--accent2':'#7DD3FC','--accent3':'#0EA5E9','--accent4':'#F472B6','--accent5':'#FBBF24',
+      '--bg':'#060A14','--surface':'#0E1624','--surface2':'#142030','--surface3':'#1C2A40',
+      '--border':'#1E3450','--border2':'#284468',
+      '--text':'#E0F0FE','--dim':'#7DC0E8','--muted':'#2A6090',
     },
   },
   {
     id: 'rose', name: 'Rose', emoji: '🌸', description: 'Soft pink & coral',
-    preview: ['#0A0508', '#F472B6', '#FB923C', '#A78BFA'],
+    preview: ['#0C0610', '#F472B6', '#FB923C', '#A78BFA'],
     vars: {
-      '--accent':'#F472B6','--accent2':'#FB923C','--accent3':'#A78BFA','--accent4':'#38BDF8','--accent5':'#34D399',
-      '--bg':'#0A0508','--surface':'#140A10','--surface2':'#1E101A','--surface3':'#281824',
-      '--border':'#3D1E30','--border2':'#522840',
-      '--text':'#FCE7F3','--dim':'#F9A8D4','--muted':'#7A2E50',
+      '--accent':'#F472B6','--accent2':'#F9A8D4','--accent3':'#EC4899','--accent4':'#38BDF8','--accent5':'#34D399',
+      '--bg':'#0C0610','--surface':'#16101C','--surface2':'#201828','--surface3':'#2A2034',
+      '--border':'#3D2238','--border2':'#523048',
+      '--text':'#F8E7F0','--dim':'#D0A0C0','--muted':'#804070',
     },
   },
 ];
@@ -96,7 +96,7 @@ export const DEFAULT_SETTINGS = {
   apiKeys:    { minimax: '', openai: '', groq: '', anthropic: '' },
   models:     { minimax: 'MiniMax-Text-01', openai: 'gpt-4o-mini', groq: 'llama-3.3-70b-versatile', anthropic: 'claude-haiku-4-5-20251001' },
   // Appearance
-  theme:      'precision',
+  theme:      'obsidian',
   fontSize:   'md',
   compactMode: false,
   // Agency
@@ -122,7 +122,7 @@ export const DEFAULT_PROFILE = {
 };
 
 export const PROVIDER_META = {
-  minimax:   { label: 'MiniMax',   icon: '⚡', color: '#0066FF', placeholder: 'sk-api-...',    docsUrl: 'https://www.minimax.io' },
+  minimax:   { label: 'MiniMax',   icon: '⚡', color: '#7C6AFF', placeholder: 'sk-api-...',    docsUrl: 'https://www.minimax.io' },
   openai:    { label: 'OpenAI',    icon: '🤖', color: '#10A37F', placeholder: 'sk-...',         docsUrl: 'https://platform.openai.com' },
   groq:      { label: 'Groq',      icon: '🔥', color: '#F55036', placeholder: 'gsk_...',        docsUrl: 'https://console.groq.com' },
   anthropic: { label: 'Anthropic', icon: '🧠', color: '#CC785C', placeholder: 'sk-ant-...',     docsUrl: 'https://console.anthropic.com' },

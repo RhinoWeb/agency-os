@@ -2,6 +2,33 @@ import { useState, useEffect } from 'react';
 
 const LOCAL_CHANGELOG = [
   {
+    version: '1.0.5',
+    date: '2026-03-09',
+    label: 'Obsidian UI',
+    features: [
+      'Complete UI redesign — "Obsidian" design system with warm indigo accent on rich charcoal',
+      'New typography — Outfit font replaces monospace as default body font for dramatically better readability',
+      'Base font size increased from 13px to 14px across all views',
+      'WCAG AA-compliant contrast ratios on all text layers (muted text now passes accessibility checks)',
+      'Warmer, more premium color palette — indigo-violet accent (#7C6AFF) replaces harsh blue',
+      '6 updated color themes with improved contrast and warmer tones',
+      'Cards with larger border-radius, better surface separation, and hover shadows',
+      'Buttons and inputs now use sans-serif font for improved readability',
+      'Modal backdrop blur and deeper shadow depth',
+      'Improved spacing and breathing room throughout all views',
+    ],
+    technical: [
+      'Complete index.css rewrite — new design tokens, typography scale, component styles',
+      'Outfit font loaded from Google Fonts (300-800 weights)',
+      'theme.js rebuilt with new C color object matching CSS variables',
+      'Default theme changed from "Precision" to "Obsidian"',
+      'All hardcoded #0066FF references updated to #7C6AFF across views',
+      'THEMES array updated with WCAG-compliant contrast ratios',
+      'Selection highlight color updated to match new accent',
+      'Scrollbar and focus ring styles updated for new palette',
+    ],
+  },
+  {
     version: '1.0.4',
     date: '2026-03-09',
     label: 'Hardened & Polished',

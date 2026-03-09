@@ -3,7 +3,7 @@ import { Badge, ProgressBar } from '../components/ui/index.jsx';
 import { C } from '../theme.js';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
 
-const PRESET_COLORS  = ['#0066FF','#3388FF','#004ACC','#66AAFF','#99BBFF','#FF9100','#00C853','#FF1744'];
+const PRESET_COLORS  = ['#7C6AFF','#9B8AFF','#5B4CD9','#B0A4FF','#34D399','#FBBF24','#F87171','#38BDF8'];
 const STAGE_OPTIONS  = ['outreach','replied','call','proposal','closed'];
 const TYPE_OPTIONS   = [{ v:'brand',label:'Brand' },{ v:'saas',label:'SaaS' },{ v:'creator',label:'Creator / KOL' },{ v:'retreat',label:'Retreat' }];
 const INTERACT_TYPES = [
