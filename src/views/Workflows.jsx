@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Badge, Dot } from '../components/ui/index.jsx';
 import { C } from '../theme.js';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
+import EmptyState from '../components/ui/EmptyState.jsx';
 
 function WorkflowModal({ onAdd, onClose }) {
   const [name,    setName]    = useState('');
@@ -45,7 +46,7 @@ function WorkflowModal({ onAdd, onClose }) {
     >
       <div className="modal" onClick={e => e.stopPropagation()}>
         <h2 id="wf-modal-title" className="modal-title">New Workflow</h2>
-        <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        <form onSubmit={handleSubmit} className="form-stack">
           <input
             ref={inputRef}
             className="input"
@@ -65,9 +66,9 @@ function WorkflowModal({ onAdd, onClose }) {
 
           <div>
             <div className="text-xs text-muted text-upper" style={{ marginBottom:8 }}>Pipeline Steps</div>
-            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+            <div className="form-stack" style={{ gap:6 }}>
               {steps.map((step, i) => (
-                <div key={i} style={{ display:'flex', gap:6, alignItems:'center' }}>
+                <div key={i} className="flex-center gap-6">
                   <span style={{ fontSize:10, fontFamily:'var(--mono)', color:'var(--muted)', minWidth:22, textAlign:'center' }}>
                     {String(i + 1).padStart(2, '0')}
                   </span>
@@ -82,7 +83,8 @@ function WorkflowModal({ onAdd, onClose }) {
                   {steps.length > 1 && (
                     <button
                       type="button"
-                      style={{ background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:18, lineHeight:1, padding:'0 4px' }}
+                      className="close-btn"
+                      style={{ padding:'0 4px' }}
                       onClick={() => removeStep(i)}
                       aria-label={`Remove step ${i + 1}`}
                     >×</button>
@@ -100,7 +102,7 @@ function WorkflowModal({ onAdd, onClose }) {
             </button>
           </div>
 
-          <div style={{ display:'flex', gap:8, marginTop:4 }}>
+          <div className="form-actions">
             <button type="button" className="btn btn--ghost" style={{ flex:1 }} onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn--primary" style={{ flex:1 }}>Create Workflow</button>
           </div>
@@ -110,7 +112,7 @@ function WorkflowModal({ onAdd, onClose }) {
   );
 }
 
-export default function Workflows({ workflows, setWorkflows }) {
+export default function Workflows({ workflows, setWorkflows, openConfirm }) {
   const [showModal, setShowModal] = useState(false);
 
   function addWorkflow(wf) {
@@ -150,8 +152,8 @@ export default function Workflows({ workflows, setWorkflows }) {
       >
         <div className="flex-between mb-14">
           <div>
-            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3, flexWrap:'wrap' }}>
-              <h2 style={{ fontFamily:'var(--sans)', fontSize:16, fontWeight:700 }}>
+            <div className="flex-center" style={{ gap:8, marginBottom:3, flexWrap:'wrap' }}>
+              <h2 className="heading-md">
                 {w.isTemplate ? '📋' : '⚡'} {w.name}
               </h2>
               {w.isTemplate ? (
@@ -167,7 +169,7 @@ export default function Workflows({ workflows, setWorkflows }) {
               {w.trigger}{!w.isTemplate && ` · ${w.runs} runs · Last: ${w.lastRun}`}
             </div>
           </div>
-          <div style={{ display:'flex', gap:6 }}>
+          <div className="flex-center gap-6">
             {w.isTemplate ? (
               <button
                 className="btn btn--sm"
@@ -195,7 +197,13 @@ export default function Workflows({ workflows, setWorkflows }) {
                 <button
                   className="btn btn--sm"
                   style={{ background:`${C.red}12`, borderColor:C.red, color:C.red }}
-                  onClick={() => window.confirm(`Delete "${w.name}"?`) && deleteWorkflow(w.id)}
+                  onClick={() => openConfirm({
+                    title: `Delete "${w.name}"?`,
+                    message: 'This workflow will be permanently deleted.',
+                    confirmLabel: 'Delete Workflow',
+                    danger: true,
+                    onConfirm: () => deleteWorkflow(w.id),
+                  })}
                   aria-label={`Delete workflow: ${w.name}`}
                 >
                   ✕
@@ -207,7 +215,7 @@ export default function Workflows({ workflows, setWorkflows }) {
 
         <div className="workflow-steps" role="list" aria-label="Pipeline steps">
           {w.steps.map((step, i) => (
-            <div key={i} style={{ display:'flex', alignItems:'center' }}>
+            <div key={i} className="flex-center">
               <div className="workflow-step" role="listitem">
                 <span className="workflow-step__num">0{i+1}</span>
                 {step}
@@ -234,33 +242,11 @@ export default function Workflows({ workflows, setWorkflows }) {
         </button>
       </header>
 
+      {workflows.length === 0 && (
+        <EmptyState icon="⚡" title="No workflows created" subtitle="Build automated multi-step workflows to save time" action="+ New Workflow" onAction={() => setShowModal(true)} />
+      )}
+
       <div role="list" aria-label="Active workflows">
-        {activeWorkflows.length === 0 && (
-          <div className="card" style={{ padding:40, textAlign:'center', color:'var(--muted)', marginBottom:14 }}>
-            <div style={{ fontSize:32, marginBottom:12 }}>⚡</div>
-            <div style={{ fontSize:14, fontWeight:600, marginBottom:6, color:'var(--text)' }}>No active workflows yet</div>
-            <div style={{ fontSize:12, marginBottom:20, lineHeight:1.6 }}>
-              Chain your agents into automated pipelines — content, reporting, outreach, and more.
-            </div>
-            <div style={{ display:'flex', gap:8, justifyContent:'center', flexWrap:'wrap', marginBottom:16 }}>
-              {[
-                { label:'Blog → Social → Email', emoji:'✍️' },
-                { label:'Weekly Client Report',  emoji:'📊' },
-                { label:'Lead Nurture Sequence', emoji:'📨' },
-              ].map(t => (
-                <span key={t.label} style={{
-                  padding:'5px 12px', borderRadius:20, fontSize:11, fontFamily:'var(--mono)',
-                  background:`${C.accent5}12`, border:`1px solid ${C.accent5}30`, color:C.accent5, cursor:'default',
-                }}>
-                  {t.emoji} {t.label}
-                </span>
-              ))}
-            </div>
-            <div style={{ fontSize:11, color:'var(--muted)' }}>
-              ↓ Use a template below or create a custom workflow
-            </div>
-          </div>
-        )}
         {activeWorkflows.map(w => <WorkflowCard key={w.id} w={w}/>)}
       </div>
 

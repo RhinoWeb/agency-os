@@ -208,24 +208,24 @@ function ClientModal({ initial, onSave, onClose }) {
       onClick={onClose} onKeyDown={e => e.key === 'Escape' && onClose()} ref={trapRef}>
       <div className="modal" style={{ maxWidth:520 }} onClick={e => e.stopPropagation()}>
         <h2 id="cl-modal-title" className="modal-title">{isEdit ? 'Edit Client' : 'Add Client'}</h2>
-        <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        <form onSubmit={handleSubmit} className="form-stack">
 
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+          <div className="form-grid">
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Name *</label>
+              <label className="settings-label form-label">Name *</label>
               <input ref={inputRef} className="input" value={form.name} onChange={e => set('name', e.target.value)} placeholder="Client name" required/>
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Type</label>
+              <label className="settings-label form-label">Type</label>
               <select className="input" value={form.clientType} onChange={e => set('clientType', e.target.value)}>
                 {TYPE_OPTIONS.map(t => <option key={t.v} value={t.v}>{t.label}</option>)}
               </select>
             </div>
           </div>
 
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+          <div className="form-grid">
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Status</label>
+              <label className="settings-label form-label">Status</label>
               <select className="input" value={form.status} onChange={e => set('status', e.target.value)}>
                 <option value="active">Active</option>
                 <option value="pipeline">Pipeline</option>
@@ -233,12 +233,12 @@ function ClientModal({ initial, onSave, onClose }) {
             </div>
             {form.status === 'active' ? (
               <div>
-                <label className="settings-label" style={{ display:'block', marginBottom:4 }}>MRR ($)</label>
+                <label className="settings-label form-label">MRR ($)</label>
                 <input className="input" type="number" min="0" value={form.mrr} onChange={e => set('mrr', e.target.value)} placeholder="5000"/>
               </div>
             ) : (
               <div>
-                <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Outreach Stage</label>
+                <label className="settings-label form-label">Outreach Stage</label>
                 <select className="input" value={form.outreachStage} onChange={e => set('outreachStage', e.target.value)}>
                   {STAGE_OPTIONS.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
                 </select>
@@ -248,35 +248,35 @@ function ClientModal({ initial, onSave, onClose }) {
 
           {form.status === 'active' && (
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Health Score (0–100)</label>
+              <label className="settings-label form-label">Health Score (0–100)</label>
               <input className="input" type="number" min="0" max="100" value={form.health} onChange={e => set('health', e.target.value)} placeholder="85"/>
             </div>
           )}
 
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+          <div className="form-grid">
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Contact Name</label>
+              <label className="settings-label form-label">Contact Name</label>
               <input className="input" value={form.contact} onChange={e => set('contact', e.target.value)} placeholder="Jane Smith"/>
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Email</label>
+              <label className="settings-label form-label">Email</label>
               <input className="input" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="jane@company.com"/>
             </div>
           </div>
 
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+          <div className="form-grid">
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Client Since</label>
+              <label className="settings-label form-label">Client Since</label>
               <input className="input" value={form.since} onChange={e => set('since', e.target.value)} placeholder="Jan 2025"/>
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Services (comma-separated)</label>
+              <label className="settings-label form-label">Services (comma-separated)</label>
               <input className="input" value={form.services} onChange={e => set('services', e.target.value)} placeholder="SEO, Content, Email"/>
             </div>
           </div>
 
           <div>
-            <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Notes</label>
+            <label className="settings-label form-label">Notes</label>
             <textarea className="input" rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Client notes..." style={{ resize:'vertical' }}/>
           </div>
 
@@ -292,7 +292,7 @@ function ClientModal({ initial, onSave, onClose }) {
             </div>
           </div>
 
-          <div style={{ display:'flex', gap:8, marginTop:4 }}>
+          <div className="form-actions">
             <button type="button" className="btn btn--ghost" style={{ flex:1 }} onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn--primary" style={{ flex:1 }}>{isEdit ? 'Save Changes' : 'Add Client'}</button>
           </div>
@@ -303,7 +303,7 @@ function ClientModal({ initial, onSave, onClose }) {
 }
 
 // ── Main component ────────────────────────────────────────────────
-export default function Clients({ clients, setClients, mrr, allTasks, setTab }) {
+export default function Clients({ clients, setClients, mrr, allTasks, setTab, openConfirm }) {
   const [selectedId,   setSelectedId]   = useState(null);
   const [modal,        setModal]        = useState(null);
   const [search,       setSearch]       = useState('');
@@ -321,9 +321,16 @@ export default function Clients({ clients, setClients, mrr, allTasks, setTab }) 
   }
 
   function deleteClient(id) {
-    if (!window.confirm('Delete this client? This cannot be undone.')) return;
-    setClients(p => p.filter(c => c.id !== id));
-    setSelectedId(null);
+    openConfirm({
+      title: 'Delete this client?',
+      message: 'This client record cannot be recovered. All associated history will be lost.',
+      confirmLabel: 'Delete Client',
+      danger: true,
+      onConfirm: () => {
+        setClients(p => p.filter(c => c.id !== id));
+        setSelectedId(null);
+      },
+    });
   }
 
   function addInteraction(clientId, interaction) {
@@ -361,8 +368,8 @@ export default function Clients({ clients, setClients, mrr, allTasks, setTab }) 
       return true;
     })
     .sort((a, b) => {
-      if (sortBy === 'mrr')    return b.mrr - a.mrr;
-      if (sortBy === 'health') return b.health - a.health;
+      if (sortBy === 'mrr')    return (b.mrr ?? 0) - (a.mrr ?? 0);
+      if (sortBy === 'health') return (b.health ?? 0) - (a.health ?? 0);
       return a.name.localeCompare(b.name);
     });
 
@@ -382,7 +389,7 @@ export default function Clients({ clients, setClients, mrr, allTasks, setTab }) 
     return (
       <section className="view" aria-labelledby="client-detail-title">
         {/* Nav bar */}
-        <div className="flex-center gap-10" style={{ marginBottom:16 }}>
+        <div className="flex-center gap-10 section-gap">
           <button className="btn btn--ghost btn--sm" onClick={() => setSelectedId(null)} aria-label="Back">
             ← Back
           </button>
@@ -406,15 +413,15 @@ export default function Clients({ clients, setClients, mrr, allTasks, setTab }) 
         </div>
 
         {/* KPI strip */}
-        <div className="grid-4 mb-16" style={{ marginBottom:16 }}>
+        <div className="grid-4 mb-16 section-gap">
           {[
             { l:'MRR',      v: cl.mrr    ? `$${(cl.mrr/1000).toFixed(1)}k` : '—' },
             { l:'Health',   v: cl.health ? `${cl.health}%`                  : '—' },
             { l:'Since',    v: cl.since },
             { l:'Services', v: cl.services.length },
           ].map((s, i) => (
-            <div key={i} style={{ background:'var(--surface2)', borderRadius:8, padding:'10px 14px', textAlign:'center' }}>
-              <div style={{ fontSize:16, fontWeight:700 }}>{s.v}</div>
+            <div key={i} className="dash-mini-kpi">
+              <div className="dash-mini-kpi__value">{s.v}</div>
               <div className="text-xs text-muted text-upper" style={{ marginTop:2 }}>{s.l}</div>
             </div>
           ))}
@@ -528,7 +535,7 @@ export default function Clients({ clients, setClients, mrr, allTasks, setTab }) 
   // ── List View ─────────────────────────────────────────────────
   return (
     <section className="view" aria-labelledby="clients-title">
-      <header className="flex-between" style={{ marginBottom:20 }}>
+      <header className="flex-between view-header">
         <div>
           <h1 id="clients-title" className="view-title">Client Management</h1>
           <p className="view-subtitle">CRM overview — health tracking, revenue, and next actions</p>
@@ -547,7 +554,7 @@ export default function Clients({ clients, setClients, mrr, allTasks, setTab }) 
         ].map((m, i) => (
           <div key={i} className="card card--sm" style={{ borderTop:`3px solid ${m.c}` }}>
             <div className="kpi-label">{m.l}</div>
-            <div style={{ fontSize:24, fontWeight:700, fontFamily:'var(--sans)' }}>{m.v}</div>
+            <div className="kpi-value-lg">{m.v}</div>
           </div>
         ))}
       </div>

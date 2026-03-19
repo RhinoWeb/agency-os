@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Badge, ProgressBar } from '../components/ui/index.jsx';
 import { C } from '../theme.js';
+import EmptyState from '../components/ui/EmptyState.jsx';
 
 // ── Apify actor library ─────────────────────────────────────────
 const ACTORS = [
@@ -92,49 +93,49 @@ function AddLeadModal({ onAdd, onClose }) {
 
   return (
     <div
-      style={{ position:'fixed', inset:0, background:'rgba(6,9,15,0.85)', backdropFilter:'blur(6px)', zIndex:9000, display:'flex', alignItems:'center', justifyContent:'center' }}
+      className="modal-overlay"
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div style={{ background:'var(--surface)', border:'1px solid var(--border2)', borderRadius:16, padding:32, width:'100%', maxWidth:520, maxHeight:'90vh', overflowY:'auto', margin:'0 16px' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24 }}>
+      <div className="modal" style={{ maxWidth:520 }}>
+        <div className="flex-between" style={{ marginBottom:24 }}>
           <h2 style={{ fontSize:18, fontWeight:700, fontFamily:'var(--sans)' }}>Add Lead Manually</h2>
-          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--muted)', fontSize:18, lineHeight:1 }}>✕</button>
+          <button onClick={onClose} className="close-btn">✕</button>
         </div>
 
-        <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:14 }}>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+        <form onSubmit={submit} className="form-stack">
+          <div className="form-grid">
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Name *</label>
+              <label className="settings-label form-label">Name *</label>
               <input className="input" value={form.name} onChange={e => set('name', e.target.value)} placeholder="Jane Smith" autoFocus required />
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Title</label>
+              <label className="settings-label form-label">Title</label>
               <input className="input" value={form.title} onChange={e => set('title', e.target.value)} placeholder="VP of Marketing" />
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Company</label>
+              <label className="settings-label form-label">Company</label>
               <input className="input" value={form.company} onChange={e => set('company', e.target.value)} placeholder="Acme Corp" />
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Email</label>
+              <label className="settings-label form-label">Email</label>
               <input className="input" type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="jane@acme.com" />
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Location</label>
+              <label className="settings-label form-label">Location</label>
               <input className="input" value={form.location} onChange={e => set('location', e.target.value)} placeholder="New York, NY" />
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Employees</label>
+              <label className="settings-label form-label">Employees</label>
               <input className="input" value={form.employees} onChange={e => set('employees', e.target.value)} placeholder="50-200" />
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Industry</label>
+              <label className="settings-label form-label">Industry</label>
               <select className="input" value={form.industry} onChange={e => set('industry', e.target.value)}>
                 {INDUSTRIES.map(i => <option key={i}>{i}</option>)}
               </select>
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Status</label>
+              <label className="settings-label form-label">Status</label>
               <select className="input" value={form.status} onChange={e => set('status', e.target.value)}>
                 {['lead','prospect','active','lost'].map(s => <option key={s}>{s}</option>)}
               </select>
@@ -142,12 +143,12 @@ function AddLeadModal({ onAdd, onClose }) {
           </div>
 
           <div>
-            <label className="settings-label" style={{ display:'block', marginBottom:4 }}>LinkedIn URL</label>
+            <label className="settings-label form-label">LinkedIn URL</label>
             <input className="input" value={form.linkedIn} onChange={e => set('linkedIn', e.target.value)} placeholder="linkedin.com/in/janesmith" />
           </div>
 
           <div>
-            <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Lead Score: {form.leadScore}</label>
+            <label className="settings-label form-label">Lead Score: {form.leadScore}</label>
             <input
               type="range" min={0} max={100}
               value={form.leadScore}
@@ -157,11 +158,11 @@ function AddLeadModal({ onAdd, onClose }) {
           </div>
 
           <div>
-            <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Notes</label>
+            <label className="settings-label form-label">Notes</label>
             <textarea className="input" rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Qualification notes…" style={{ resize:'vertical' }} />
           </div>
 
-          <div style={{ display:'flex', gap:8, marginTop:4 }}>
+          <div className="form-actions">
             <button type="button" className="btn btn--ghost" onClick={onClose} style={{ flex:1 }}>Cancel</button>
             <button type="submit" className="btn btn--primary" style={{ flex:2 }}>Add Lead</button>
           </div>
@@ -189,7 +190,7 @@ function exportCSV(leads) {
 }
 
 // ── Pipeline tab ────────────────────────────────────────────────
-function Pipeline({ leads, setLeads, setClients, setTab, onAddLead, toast }) {
+function Pipeline({ leads, setLeads, setClients, setTab, onAddLead, toast, setSubTab }) {
   const [filter,   setFilter]   = useState('all');
   const [search,   setSearch]   = useState('');
   const [sortKey,  setSortKey]  = useState('score');
@@ -268,7 +269,13 @@ function Pipeline({ leads, setLeads, setClients, setTab, onAddLead, toast }) {
   }
 
   function deleteLead(id) {
-    if (window.confirm('Remove this lead?')) setLeads(p => p.filter(l => l.id !== id));
+    openConfirm({
+      title: 'Remove this lead?',
+      message: 'This lead and its history will be deleted.',
+      confirmLabel: 'Delete Lead',
+      danger: true,
+      onConfirm: () => setLeads(p => p.filter(l => l.id !== id)),
+    });
   }
 
   return (
@@ -323,17 +330,10 @@ function Pipeline({ leads, setLeads, setClients, setTab, onAddLead, toast }) {
       </div>
 
       {/* Lead list */}
+      {safeLeads.length === 0 && (
+        <EmptyState icon="◉" title="No leads in pipeline" subtitle="Scrape leads from LinkedIn, Apollo, or Google Maps to fill your pipeline" action="Find Leads" onAction={() => setSubTab('find')} />
+      )}
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-        {visible.length === 0 && (
-          <div style={{ textAlign:'center', padding:'48px 0', color:'var(--muted)', fontSize:13 }}>
-            <div style={{ fontSize:28, marginBottom:10 }}>◉</div>
-            No leads found.{' '}
-            <button onClick={onAddLead} style={{ background:'none', border:'none', color:C.accent, cursor:'pointer', fontSize:13, fontFamily:'inherit' }}>
-              Add one manually
-            </button>
-            {' '}or use "Find Leads" to pull from Apify.
-          </div>
-        )}
         {visible.map(lead => {
           const isExp  = expanded === lead.id;
           const isHot  = lead.leadScore >= 80;
@@ -552,7 +552,9 @@ function FindLeads({ leads, setLeads, apifyRuns, setApifyRuns }) {
             setError(`Run ${sd.status.toLowerCase()}`);
             setRunning(false);
           }
-        } catch { /* keep polling */ }
+        } catch (pollErr) {
+          console.warn('Poll check failed:', pollErr.message);
+        }
       }, 4000);
       setPollTimer(tid);
     } catch (err) {
@@ -727,8 +729,252 @@ function FindLeads({ leads, setLeads, apifyRuns, setApifyRuns }) {
   );
 }
 
+// ── Auto-Source (scheduled scraping + auto-enrollment) ──────────
+function AutoSource({ leads, setLeads, campaigns, setCampaigns, pipelineConfig, setPipelineConfig, scrapeSchedules, setScrapeSchedules, toast }) {
+  const [newActor, setNewActor]     = useState(ACTORS[0].id);
+  const [newInput, setNewInput]     = useState('');
+  const [newFreq,  setNewFreq]      = useState('twice-weekly');
+  const [newLabel, setNewLabel]     = useState('');
+  const [saving,   setSaving]       = useState(false);
+  const [scoringBatch, setScoringBatch] = useState(null);
+  const [calStatus, setCalStatus]   = useState(null); // { connected, username, eventTypes }
+  const [calLoading, setCalLoading] = useState(false);
+
+  // Check Cal.com connection on mount
+  useEffect(() => {
+    fetch('/api/cal/status').then(r => r.json()).then(d => {
+      if (d.connected) {
+        setCalStatus(d);
+        // Also fetch event types
+        fetch('/api/cal/event-types').then(r => r.json()).then(et => {
+          setCalStatus(prev => ({ ...prev, eventTypes: et.eventTypes ?? [] }));
+        }).catch(() => {});
+      } else {
+        setCalStatus({ connected: false });
+      }
+    }).catch(() => setCalStatus({ connected: false }));
+  }, []);
+
+  async function addSchedule() {
+    if (!newActor) return;
+    setSaving(true);
+    try {
+      const r = await fetch('/api/apify/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actorId: newActor, input: { searchUrl: newInput }, frequency: newFreq, label: newLabel || ACTORS.find(a => a.id === newActor)?.label }),
+      });
+      const sched = await r.json();
+      if (r.ok) {
+        setScrapeSchedules(p => { const idx = p.findIndex(s => s.id === sched.id); return idx >= 0 ? p.map((s, i) => i === idx ? sched : s) : [...p, sched]; });
+        setNewInput(''); setNewLabel('');
+        toast('Schedule saved');
+      }
+    } catch {} finally { setSaving(false); }
+  }
+
+  async function deleteSchedule(id) {
+    await fetch(`/api/apify/schedule/${id}`, { method: 'DELETE' }).catch(() => {});
+    setScrapeSchedules(p => p.filter(s => s.id !== id));
+  }
+
+  async function scoreLeads() {
+    const unscored = leads.filter(l => l.source === 'apify' && l.status === 'lead');
+    if (!unscored.length) { toast('No unscored leads'); return; }
+    setScoringBatch('scoring');
+    try {
+      const r = await fetch('/api/ai/score-leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leads: unscored.slice(0, 25), icp: pipelineConfig.icp ?? '' }),
+      });
+      const data = await r.json();
+      if (r.ok && data.scores) {
+        setLeads(prev => {
+          const scoreMap = {};
+          data.scores.forEach(s => { if (s.index >= 1 && s.index <= unscored.length) scoreMap[unscored[s.index - 1].id] = s.score; });
+          return prev.map(l => scoreMap[l.id] != null ? { ...l, leadScore: scoreMap[l.id] } : l);
+        });
+        toast(`${data.scores.length} leads scored by AI`);
+      }
+    } catch {} finally { setScoringBatch(null); }
+  }
+
+  function autoEnroll() {
+    const threshold = pipelineConfig.autoEnrollThreshold ?? 65;
+    const eligible = leads.filter(l => l.status === 'lead' && !l.campaignId && l.leadScore >= threshold);
+    const activeCamp = campaigns.find(c => c.status === 'active');
+    if (!eligible.length) { toast('No leads above threshold'); return; }
+    if (!activeCamp) { toast('No active campaign to enroll into'); return; }
+
+    const ids = eligible.map(l => l.id);
+    setLeads(p => p.map(l => ids.includes(l.id) ? { ...l, campaignId: activeCamp.id, sequenceStep: 1 } : l));
+    setCampaigns(p => p.map(c => c.id === activeCamp.id ? { ...c, leadIds: [...(c.leadIds ?? []), ...ids] } : c));
+
+    // Push to Instantly if campaign has an Instantly ID
+    if (activeCamp.instantlyCampaignId) {
+      const leadsPayload = eligible.map(l => ({ email: l.email, first_name: l.name.split(' ')[0], last_name: l.name.split(' ').slice(1).join(' '), company_name: l.company }));
+      fetch('/api/instantly/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId: activeCamp.instantlyCampaignId, leads: leadsPayload }),
+      }).catch(() => {});
+    }
+    toast(`${eligible.length} leads enrolled in ${activeCamp.name}`);
+  }
+
+  const activeCamp = campaigns.find(c => c.status === 'active');
+  const eligibleCount = leads.filter(l => l.status === 'lead' && !l.campaignId && l.leadScore >= (pipelineConfig.autoEnrollThreshold ?? 65)).length;
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+      {/* Auto-enrollment controls */}
+      <div className="card">
+        <div className="card-header">⚡ Auto-Enrollment Settings</div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
+          <div>
+            <label className="settings-label">Score Threshold</label>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <input type="range" min={30} max={90} value={pipelineConfig.autoEnrollThreshold ?? 65}
+                onChange={e => setPipelineConfig(p => ({ ...p, autoEnrollThreshold: +e.target.value }))}
+                style={{ flex:1 }} />
+              <span style={{ fontFamily:'var(--mono)', fontSize:13, fontWeight:700, color:C.accent, minWidth:32 }}>
+                {pipelineConfig.autoEnrollThreshold ?? 65}
+              </span>
+            </div>
+          </div>
+          <div>
+            <label className="settings-label">ICP Description</label>
+            <input className="input" placeholder="B2B SaaS, 10-500 employees, decision makers"
+              value={pipelineConfig.icp ?? ''} onChange={e => setPipelineConfig(p => ({ ...p, icp: e.target.value }))} />
+          </div>
+        </div>
+        {/* Toggles */}
+        <div style={{ display:'flex', gap:16, marginBottom:12, flexWrap:'wrap' }}>
+          <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:12, fontFamily:'var(--sans)', cursor:'pointer', color:'var(--dim)' }}>
+            <input type="checkbox" checked={pipelineConfig.autoBookEnabled ?? false}
+              onChange={e => setPipelineConfig(p => ({ ...p, autoBookEnabled: e.target.checked }))} />
+            Auto-book positive replies (≥85% confidence)
+          </label>
+          <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:12, fontFamily:'var(--sans)', cursor:'pointer', color:'var(--dim)' }}>
+            <input type="checkbox" checked={pipelineConfig.autopilotAutoExecute ?? false}
+              onChange={e => setPipelineConfig(p => ({ ...p, autopilotAutoExecute: e.target.checked }))} />
+            Autopilot auto-execute actions
+          </label>
+        </div>
+        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+          <button className="btn btn--primary" onClick={autoEnroll} disabled={!eligibleCount}>
+            Enroll {eligibleCount} leads → {activeCamp?.name ?? 'No active campaign'}
+          </button>
+          <button className="btn" onClick={scoreLeads} disabled={scoringBatch}>
+            {scoringBatch ? 'Scoring…' : '🧠 AI Score Leads'}
+          </button>
+        </div>
+      </div>
+
+      {/* Cal.com Booking Configuration */}
+      <div className="card">
+        <div className="card-header">📅 Booking Mode</div>
+        <div style={{ display:'flex', gap:16, marginBottom:12, flexWrap:'wrap' }}>
+          <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:12, fontFamily:'var(--sans)', cursor:'pointer', color: (pipelineConfig.bookingMode ?? 'fixed') === 'fixed' ? 'var(--accent)' : 'var(--dim)' }}>
+            <input type="radio" name="bookingMode" checked={(pipelineConfig.bookingMode ?? 'fixed') === 'fixed'}
+              onChange={() => setPipelineConfig(p => ({ ...p, bookingMode: 'fixed' }))} />
+            Fixed Time (auto-book next business day)
+          </label>
+          <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:12, fontFamily:'var(--sans)', cursor:'pointer', color: pipelineConfig.bookingMode === 'calcom' ? 'var(--accent)' : 'var(--dim)' }}>
+            <input type="radio" name="bookingMode" checked={pipelineConfig.bookingMode === 'calcom'}
+              onChange={() => setPipelineConfig(p => ({ ...p, bookingMode: 'calcom' }))} />
+            Self-Schedule (Cal.com — leads pick their own time)
+          </label>
+        </div>
+
+        {pipelineConfig.bookingMode === 'calcom' && (
+          <div style={{ padding:12, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8 }}>
+            {calStatus?.connected ? (
+              <>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+                  <span style={{ fontSize:10, fontFamily:'var(--mono)', color:C.green, background:`${C.green}15`, border:`1px solid ${C.green}30`, borderRadius:4, padding:'2px 6px' }}>CONNECTED</span>
+                  <span style={{ fontSize:11, color:'var(--dim)' }}>cal.com/{calStatus.username}</span>
+                </div>
+                {(calStatus.eventTypes?.length ?? 0) > 0 ? (
+                  <div>
+                    <label className="settings-label">Event Type for Booking Links</label>
+                    <select className="input" value={pipelineConfig.calEventTypeId ?? ''}
+                      onChange={e => setPipelineConfig(p => ({ ...p, calEventTypeId: +e.target.value || null }))}>
+                      <option value="">Select event type…</option>
+                      {calStatus.eventTypes.map(et => (
+                        <option key={et.id} value={et.id}>
+                          {et.title} ({et.length}min){et.teamSlug ? ` — Team: ${et.teamSlug}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {pipelineConfig.calEventTypeId && (
+                      <div style={{ fontSize:10, color:'var(--muted)', fontFamily:'var(--mono)', marginTop:6 }}>
+                        Booking link preview: {calStatus.eventTypes.find(e => e.id === pipelineConfig.calEventTypeId)?.bookingUrl ?? '—'}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ fontSize:11, color:'var(--muted)' }}>No event types found. Create one at cal.com/event-types.</div>
+                )}
+              </>
+            ) : (
+              <div style={{ fontSize:11, color:'var(--muted)' }}>
+                Cal.com not connected. Add <code style={{ fontFamily:'var(--mono)', color:'var(--accent)', fontSize:10 }}>CAL_COM_API_KEY</code> to your .env file and restart the server.
+                <br />Get your API key at <span style={{ color:'var(--accent)' }}>cal.com → Settings → Developer → API Keys</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Scrape schedules */}
+      <div className="card">
+        <div className="card-header">📅 Scrape Schedules</div>
+        {(scrapeSchedules ?? []).length > 0 && (
+          <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:14 }}>
+            {(scrapeSchedules ?? []).map(s => (
+              <div key={s.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8 }}>
+                <span style={{ fontSize:16 }}>{ACTORS.find(a => a.id === s.actorId)?.icon ?? '🔧'}</span>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:12, fontWeight:600 }}>{s.label || s.actorId}</div>
+                  <div style={{ fontSize:10, color:'var(--muted)', fontFamily:'var(--mono)' }}>{s.frequency} · {s.enabled ? '✅ Active' : '⏸ Paused'}</div>
+                </div>
+                <button className="btn btn--sm" style={{ color:C.red, borderColor:C.red }} onClick={() => deleteSchedule(s.id)}>✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
+          <div>
+            <label className="settings-label">Actor</label>
+            <select className="input" value={newActor} onChange={e => setNewActor(e.target.value)}>
+              {ACTORS.map(a => <option key={a.id} value={a.id}>{a.icon} {a.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="settings-label">Frequency</label>
+            <select className="input" value={newFreq} onChange={e => setNewFreq(e.target.value)}>
+              <option value="daily">Daily</option>
+              <option value="twice-weekly">Twice Weekly</option>
+              <option value="weekly">Weekly</option>
+            </select>
+          </div>
+        </div>
+        <div style={{ marginBottom:10 }}>
+          <label className="settings-label">Search URL / Input</label>
+          <input className="input" value={newInput} onChange={e => setNewInput(e.target.value)} placeholder="https://linkedin.com/search/results/..." />
+        </div>
+        <button className="btn btn--primary" onClick={addSchedule} disabled={saving}>
+          {saving ? 'Saving…' : '+ Add Schedule'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main view ───────────────────────────────────────────────────
-export default function LeadFinder({ leads, setLeads, campaigns, apifyRuns, setApifyRuns, clients, setClients, setTab }) {
+export default function LeadFinder({ leads, setLeads, campaigns, setCampaigns, apifyRuns, setApifyRuns, clients, setClients, setTab, pipelineConfig, setPipelineConfig, scrapeSchedules, setScrapeSchedules, openConfirm }) {
   const [subTab,      setSubTab]      = useState('pipeline');
   const [showAddLead, setShowAddLead] = useState(false);
   const [toastMsg,    setToastMsg]    = useState('');
@@ -750,7 +996,7 @@ export default function LeadFinder({ leads, setLeads, campaigns, apifyRuns, setA
 
   return (
     <section className="view" aria-labelledby="leads-title">
-      <header style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 }}>
+      <header className="view-header">
         <div>
           <h1 id="leads-title" className="view-title">Lead Finder</h1>
           <p className="view-subtitle">Pull leads from Apify and manage your pipeline</p>
@@ -768,14 +1014,14 @@ export default function LeadFinder({ leads, setLeads, campaigns, apifyRuns, setA
         ].map((k, i) => (
           <div key={i} className="card card--sm">
             <div className="kpi-label">{k.l}</div>
-            <div style={{ fontSize:22, fontWeight:700, color:k.c, fontFamily:'var(--mono)' }}>{k.v}</div>
+            <div className="kpi-value-lg" style={{ color:k.c }}>{k.v}</div>
           </div>
         ))}
       </div>
 
       {/* Sub-tabs */}
       <div style={{ display:'flex', gap:6, marginBottom:20 }}>
-        {[['pipeline','◉ Pipeline'],['find','🔍 Find Leads']].map(([id, label]) => (
+        {[['pipeline','◉ Pipeline'],['find','🔍 Find Leads'],['auto','⚡ Auto-Source']].map(([id, label]) => (
           <button
             key={id}
             className={`btn${subTab === id ? ' btn--primary' : ' btn--ghost'}`}
@@ -794,10 +1040,25 @@ export default function LeadFinder({ leads, setLeads, campaigns, apifyRuns, setA
           setTab={setTab}
           onAddLead={() => setShowAddLead(true)}
           toast={showToast}
+          setSubTab={setSubTab}
         />
       )}
       {subTab === 'find' && (
         <FindLeads leads={leads} setLeads={setLeads} apifyRuns={apifyRuns} setApifyRuns={setApifyRuns} />
+      )}
+
+      {subTab === 'auto' && (
+        <AutoSource
+          leads={leads}
+          setLeads={setLeads}
+          campaigns={campaigns}
+          setCampaigns={setCampaigns}
+          pipelineConfig={pipelineConfig}
+          setPipelineConfig={setPipelineConfig}
+          scrapeSchedules={scrapeSchedules}
+          setScrapeSchedules={setScrapeSchedules}
+          toast={showToast}
+        />
       )}
 
       {showAddLead && (

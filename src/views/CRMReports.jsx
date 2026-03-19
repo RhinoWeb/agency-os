@@ -111,7 +111,7 @@ export default function CRMReports({ deals, contacts, companies }) {
 
   return (
     <section className="view" aria-labelledby="crm-reports-title">
-      <header style={{ marginBottom: 20 }}>
+      <header className="view-header">
         <h1 id="crm-reports-title" className="view-title">CRM Reports</h1>
         <p className="view-subtitle">Pipeline analytics, deal velocity, and revenue insights</p>
       </header>
@@ -126,14 +126,14 @@ export default function CRMReports({ deals, contacts, companies }) {
         ].map((k, i) => (
           <div key={i} className="card card--sm">
             <div className="kpi-label">{k.l}</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: k.c, fontFamily: MONO }}>{k.v}</div>
+            <div className="kpi-value-lg" style={{ color: k.c }}>{k.v}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+      <div className="grid-2 section-gap">
         {/* Pipeline Value by Stage */}
-        <div className="card" style={{ padding: 20 }}>
+        <div className="card">
           <div className="section-label mb-12">Pipeline Value by Stage</div>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={stageData} layout="vertical" margin={{ left: 80 }}>
@@ -148,14 +148,14 @@ export default function CRMReports({ deals, contacts, companies }) {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-          <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 8 }}>
-            <span style={{ fontSize: 10, fontFamily: MONO, color: 'var(--muted)' }}>■ Pipeline Value</span>
-            <span style={{ fontSize: 10, fontFamily: MONO, color: 'var(--muted)', opacity: 0.5 }}>■ Weighted</span>
+          <div className="legend">
+            <span className="legend__item">■ Pipeline Value</span>
+            <span className="legend__item" style={{ opacity: 0.5 }}>■ Weighted</span>
           </div>
         </div>
 
         {/* Win/Loss Pie */}
-        <div className="card" style={{ padding: 20 }}>
+        <div className="card">
           <div className="section-label mb-12">Deal Outcomes</div>
           {winLossData.length > 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
@@ -175,20 +175,20 @@ export default function CRMReports({ deals, contacts, companies }) {
                   </div>
                 ))}
                 <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--surface2)', borderRadius: 8, textAlign: 'center' }}>
-                  <div style={{ fontSize: 9, fontFamily: MONO, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Win Rate</div>
+                  <div className="dash-subsection-label">Win Rate</div>
                   <div style={{ fontSize: 28, fontWeight: 800, fontFamily: MONO, color: winRate >= 50 ? C.green : C.yellow }}>{winRate}%</div>
                 </div>
               </div>
             </div>
           ) : (
-            <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--muted)', fontSize: 12 }}>No closed deals yet</div>
+            <div className="empty-msg">No closed deals yet</div>
           )}
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+      <div className="grid-2 section-gap">
         {/* Revenue by Company */}
-        <div className="card" style={{ padding: 20 }}>
+        <div className="card">
           <div className="section-label mb-12">Revenue by Client (MRR)</div>
           {companyRevenue.length > 0 ? (
             <ResponsiveContainer width="100%" height={200}>
@@ -202,12 +202,12 @@ export default function CRMReports({ deals, contacts, companies }) {
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--muted)', fontSize: 12 }}>No revenue data</div>
+            <div className="empty-msg">No revenue data</div>
           )}
         </div>
 
         {/* Contact Sources */}
-        <div className="card" style={{ padding: 20 }}>
+        <div className="card">
           <div className="section-label mb-12">Contact Sources</div>
           {sourceData.length > 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
@@ -229,16 +229,16 @@ export default function CRMReports({ deals, contacts, companies }) {
               </div>
             </div>
           ) : (
-            <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--muted)', fontSize: 12 }}>No contacts yet</div>
+            <div className="empty-msg">No contacts yet</div>
           )}
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="grid-2 section-gap">
         {/* Deal Metrics Table */}
-        <div className="card" style={{ padding: 20 }}>
+        <div className="card">
           <div className="section-label mb-12">Deal Metrics</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="form-stack">
             {[
               { label: 'Total Deals',     value: safeDeals.length,                              color: 'var(--text)' },
               { label: 'Open Deals',      value: openDeals.length,                              color: C.accent3 },
@@ -250,16 +250,16 @@ export default function CRMReports({ deals, contacts, companies }) {
               { label: 'Contacts',        value: safeContacts.length,                            color: 'var(--dim)' },
               { label: 'Companies',       value: safeCompanies.length,                           color: 'var(--dim)' },
             ].map((m, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--surface2)', borderRadius: 6 }}>
-                <span style={{ fontSize: 11, color: 'var(--muted)' }}>{m.label}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, fontFamily: MONO, color: m.color }}>{m.value}</span>
+              <div key={i} className="metric-row">
+                <span className="metric-row__label">{m.label}</span>
+                <span className="metric-row__value" style={{ color: m.color }}>{m.value}</span>
               </div>
             ))}
           </div>
         </div>
 
         {/* Lost Reasons */}
-        <div className="card" style={{ padding: 20 }}>
+        <div className="card">
           <div className="section-label mb-12">Lost Reasons</div>
           {lostReasons.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

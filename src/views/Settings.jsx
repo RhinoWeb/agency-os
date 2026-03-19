@@ -195,7 +195,7 @@ function ApiKeyRow({ provId, meta, value, model, defaultModel, onChange, onModel
         {status === 'fail' && <span style={{ marginLeft:'auto', fontSize:11, color:'var(--red)'   }}>✗ Failed</span>}
       </div>
 
-      <div style={{ display:'flex', gap:6, marginTop:8 }}>
+      <div className="flex-center gap-6" style={{ marginTop:8 }}>
         <div style={{ position:'relative', flex:1 }}>
           <input
             className="input"
@@ -406,7 +406,7 @@ export default function Settings({ settings, setSettings, onResetAll, clients = 
               <div className="settings-field">
                 <label className="settings-label">Active Provider</label>
                 <p className="settings-hint">This provider will be used for all AI Brain responses.</p>
-                <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:8 }}>
+                <div className="flex-center" style={{ gap:8, flexWrap:'wrap', marginTop:8 }}>
                   {Object.entries(PROVIDER_META).map(([id, meta]) => {
                     const active = settings.provider === id;
                     return (
@@ -426,7 +426,7 @@ export default function Settings({ settings, setSettings, onResetAll, clients = 
               </div>
 
               {/* API key rows */}
-              <div style={{ display:'flex', flexDirection:'column', gap:14, marginTop:4 }}>
+              <div className="form-stack" style={{ gap:14, marginTop:4 }}>
                 {Object.entries(PROVIDER_META).map(([id, meta]) => (
                   <ApiKeyRow
                     key={id}
@@ -488,7 +488,7 @@ export default function Settings({ settings, setSettings, onResetAll, clients = 
                 </div>
 
                 {/* Category tabs */}
-                <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:16 }}>
+                <div className="flex-center" style={{ gap:6, flexWrap:'wrap', marginBottom:16 }}>
                   {TOOL_CATS.map(cat => {
                     const active = toolCat === cat.id;
                     const count  = cat.id === 'all' ? TOOL_VAULT.length : TOOL_VAULT.filter(t => t.cat === cat.id).length;
@@ -513,7 +513,7 @@ export default function Settings({ settings, setSettings, onResetAll, clients = 
                 </div>
 
                 {/* Tool rows */}
-                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                <div className="form-stack" style={{ gap:8 }}>
                   {visible.map(tool => (
                     <ToolKeyRow
                       key={tool.id}
@@ -567,7 +567,7 @@ export default function Settings({ settings, setSettings, onResetAll, clients = 
                   {gcalStatus === 'connected' ? (
                     <button
                       className="btn btn--sm"
-                      style={{ background:'#F4433612', borderColor:'#F44336', color:'#F44336' }}
+                      style={{ background:'rgba(248,113,113,0.07)', borderColor:'var(--red)', color:'var(--red)' }}
                       onClick={() => fetch('/api/gcal/disconnect', { method:'POST' }).then(() => setGcalStatus('disconnected'))}
                     >
                       Disconnect
@@ -630,7 +630,7 @@ export default function Settings({ settings, setSettings, onResetAll, clients = 
               {/* Font size */}
               <div className="settings-field">
                 <label className="settings-label">Font Size</label>
-                <div style={{ display:'flex', gap:8, marginTop:8 }}>
+                <div className="flex-center gap-8" style={{ marginTop:8 }}>
                   {FONT_SIZES.map(f => (
                     <button
                       key={f.id}
@@ -698,7 +698,7 @@ export default function Settings({ settings, setSettings, onResetAll, clients = 
               <div className="settings-section-title">Notifications</div>
               <p className="settings-section-desc">Control which alerts appear in your notification feed.</p>
 
-              <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
+              <div className="form-stack" style={{ gap:0 }}>
                 <Toggle value={settings.notifAgents}  onChange={v => set('notifAgents', v)}
                   label="Agent activity"     desc="Alerts when agents complete tasks, error, or are paused"/>
                 <Toggle value={settings.notifClients} onChange={v => set('notifClients', v)}
@@ -745,7 +745,7 @@ export default function Settings({ settings, setSettings, onResetAll, clients = 
                 )}
               </div>
 
-              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              <div className="form-stack" style={{ gap:10 }}>
                 <div className="settings-data-row">
                   <div>
                     <div className="settings-data-label">Export Settings</div>

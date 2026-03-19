@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import EmptyState from '../components/ui/EmptyState.jsx';
 
 // ── 50 Prompt Library ──────────────────────────────────────
 const CATEGORIES = [
@@ -392,6 +393,9 @@ export default function AIBrain({ agents, columns, workflows, clients, aiMsgs, s
       <PromptLibrary onSelect={sendMessage} disabled={streaming} />
 
       {/* Messages */}
+      {aiMsgs.filter(m => m.role !== 'system').length === 0 && (
+        <EmptyState icon="🧠" title="Start a conversation" subtitle="Ask the AI anything about your agency — it has full context of your data" action="Try a prompt" />
+      )}
       <div ref={chatRef} className="ai-messages" role="log" aria-live="polite" aria-label="Conversation" aria-atomic="false">
         {aiMsgs.map((m, i) => {
           const isLast      = i === aiMsgs.length - 1;

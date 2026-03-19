@@ -5,3 +5,11 @@ dist/
 .DS_Store
 Thumbs.db
 .gcal-token.json
+agency.db
+agency.db-shm
+agency.db-wal
+backups/
+replies-queue.json
+cal-bookings.json
+scrape-schedules.json
+.claude/

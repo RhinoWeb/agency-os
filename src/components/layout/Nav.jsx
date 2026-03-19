@@ -5,11 +5,12 @@ import {
   Zap, LineChart, Calendar,
   BookOpen, Settings, Bell, User,
   HelpCircle, RefreshCw, Search,
+  ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
-import { Dot } from '../ui/index.jsx';
 
 const NAV_SECTIONS = [
   {
+    label: 'Workspace',
     items: [
       { id: 'dashboard', label: 'Command',    icon: LayoutDashboard },
       { id: 'tasks',     label: 'Tasks',      icon: CheckSquare },
@@ -18,6 +19,7 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    label: 'CRM',
     items: [
       { id: 'deals',       label: 'Deals',    icon: DollarSign },
       { id: 'contacts',    label: 'Contacts', icon: Users },
@@ -26,6 +28,7 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    label: 'Outreach',
     items: [
       { id: 'leads',      label: 'Leads',      icon: Target },
       { id: 'campaigns',  label: 'Campaigns',  icon: Mail },
@@ -33,6 +36,7 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    label: 'Operations',
     items: [
       { id: 'workflows',  label: 'Automate',   icon: Zap },
       { id: 'analytics',  label: 'Analytics',  icon: LineChart },
@@ -40,44 +44,76 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    label: 'Resources',
     items: [
       { id: 'knowledge',  label: 'Docs',       icon: BookOpen },
     ],
   },
 ];
 
-export default function Nav({ tab, setTab, unread, actAgents, showNotif, setShowNotif, setNotifs, setShowCmd, timer, fmtTimer, profile, updateAvailable, serverOnline }) {
+export default function Nav({ tab, setTab, unread, actAgents, showNotif, setShowNotif, setNotifs, setShowCmd, timer, fmtTimer, profile, updateAvailable, serverOnline, collapsed, setCollapsed }) {
   function handleNotif() {
     setShowNotif(p => !p);
     setNotifs(p => p.map(n => ({ ...n, read: true })));
   }
 
   return (
-    <nav className="rail" aria-label="Main navigation">
+    <nav className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`} aria-label="Main navigation">
       <a href="#main-content" className="sr-only">
         Skip to content
       </a>
 
-      <div className="rail-brand" onClick={() => setTab('dashboard')} title="Agency OS">
-        <LayoutDashboard size={20} />
+      {/* Brand */}
+      <div className="sidebar-brand">
+        <button
+          className="sidebar-brand__logo"
+          onClick={() => setTab('dashboard')}
+          title="Agency OS"
+          aria-label="Agency OS — Go to dashboard"
+        >
+          <LayoutDashboard size={18} />
+          <span className="sidebar-item__label">AgencyOS</span>
+        </button>
+        <button
+          className="sidebar-collapse-btn"
+          onClick={() => setCollapsed(c => !c)}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {collapsed ? <ChevronsRight size={14} /> : <ChevronsLeft size={14} />}
+        </button>
       </div>
 
-      <div className="rail-scroll">
+      {/* Search / Cmd+K trigger */}
+      <button
+        className="sidebar-search"
+        onClick={() => setShowCmd(true)}
+        title="Search & commands (Ctrl+K)"
+        aria-label="Open command palette"
+      >
+        <Search size={14} />
+        <span className="sidebar-search__text sidebar-item__label">Search...</span>
+        <kbd className="sidebar-search__kbd sidebar-item__label">Ctrl K</kbd>
+      </button>
+
+      {/* Nav sections */}
+      <div className="sidebar-scroll">
         {NAV_SECTIONS.map((section, si) => (
-          <div key={si}>
-            {si > 0 && <div className="rail-divider" />}
+          <div key={si} className="sidebar-section">
+            <div className="sidebar-section-label sidebar-item__label">{section.label}</div>
             {section.items.map(t => {
               const Icon = t.icon;
               return (
                 <button
                   key={t.id}
-                  className="rail-tab"
+                  className="sidebar-item"
                   aria-current={tab === t.id ? 'page' : undefined}
                   onClick={() => setTab(t.id)}
                   title={t.label}
                   aria-label={t.label}
                 >
-                  <Icon size={18} />
+                  <Icon size={16} strokeWidth={1.75} />
+                  <span className="sidebar-item__label">{t.label}</span>
                 </button>
               );
             })}
@@ -85,28 +121,30 @@ export default function Nav({ tab, setTab, unread, actAgents, showNotif, setShow
         ))}
       </div>
 
-      <div className="rail-footer">
+      {/* Footer */}
+      <div className="sidebar-footer">
         <button
-          className="rail-tab"
+          className="sidebar-item"
           onClick={() => setTab('settings')}
           aria-current={tab === 'settings' ? 'page' : undefined}
           title="Settings"
           aria-label="Settings"
         >
-          <Settings size={18} />
+          <Settings size={16} strokeWidth={1.75} />
+          <span className="sidebar-item__label">Settings</span>
         </button>
         <button
-          className="rail-tab"
+          className="sidebar-item"
           onClick={() => setTab('profile')}
           aria-current={tab === 'profile' ? 'page' : undefined}
           title="Profile"
           aria-label="Profile"
-          style={{ borderRadius: '50%' }}
         >
           {profile?.avatar?.startsWith('data:')
-            ? <img src={profile.avatar} alt="Profile" style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
-            : <User size={18} />
+            ? <img src={profile.avatar} alt="" className="sidebar-avatar" />
+            : <User size={16} strokeWidth={1.75} />
           }
+          <span className="sidebar-item__label">Profile</span>
         </button>
       </div>
     </nav>

@@ -6,6 +6,7 @@ import {
 import { ChartTooltip } from '../components/ui/index.jsx';
 import { C } from '../theme.js';
 import { revenueData, taskCompletionData } from '../data.js';
+import EmptyState from '../components/ui/EmptyState.jsx';
 
 const TIMEFRAMES = [
   { label:'1M', months:1 },
@@ -132,37 +133,41 @@ export default function Analytics({ agents, clients, columns, leads }) {
 
   return (
     <section className="view" style={{ maxWidth:1200 }} aria-labelledby="analytics-title">
-      <header style={{ marginBottom:18 }}>
+      <header className="view-header">
         <h1 id="analytics-title" className="view-title">Analytics Dashboard</h1>
         <p className="view-subtitle">Performance metrics, trends, and insights</p>
       </header>
+
+      {clients.length === 0 && (
+        <EmptyState icon="📊" title="Not enough data yet" subtitle="Add clients and complete tasks to generate analytics" />
+      )}
 
       {/* ── KPI Row ──────────────────────────────────────────── */}
       <div className="grid-4 mb-18">
         <div className="card card--sm">
           <div className="kpi-label">Monthly MRR</div>
-          <div style={{ display:'flex', alignItems:'baseline' }}>
-            <div style={{ fontSize:22, fontWeight:700, color:C.accent, fontFamily:'var(--mono)' }}>${currentMrr.toLocaleString()}</div>
+          <div className="flex-center" style={{ alignItems:'baseline' }}>
+            <div className="kpi-value-lg" style={{ color:C.accent }}>${currentMrr.toLocaleString()}</div>
             <Trend value={mrrTrend}/>
           </div>
           <div style={{ fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)', marginTop:2 }}>vs last month</div>
         </div>
         <div className="card card--sm">
           <div className="kpi-label">Net Profit</div>
-          <div style={{ display:'flex', alignItems:'baseline' }}>
-            <div style={{ fontSize:22, fontWeight:700, color:C.accent3, fontFamily:'var(--mono)' }}>${last.profit.toLocaleString()}</div>
+          <div className="flex-center" style={{ alignItems:'baseline' }}>
+            <div className="kpi-value-lg" style={{ color:C.accent3 }}>${last.profit.toLocaleString()}</div>
             <Trend value={profitTrend}/>
           </div>
           <div style={{ fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)', marginTop:2 }}>{Math.round(last.profit/last.revenue*100)}% margin</div>
         </div>
         <div className="card card--sm">
           <div className="kpi-label">Win Rate</div>
-          <div style={{ fontSize:22, fontWeight:700, color:C.green, fontFamily:'var(--mono)' }}>{winRate}%</div>
+          <div className="kpi-value-lg" style={{ color:C.green }}>{winRate}%</div>
           <div style={{ fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)', marginTop:2 }}>{activeClients.length} active / {lostLeads} lost</div>
         </div>
         <div className="card card--sm">
           <div className="kpi-label">Avg Client Health</div>
-          <div style={{ fontSize:22, fontWeight:700, color: avgHealth >= 75 ? C.accent3 : C.yellow, fontFamily:'var(--mono)' }}>{avgHealth}%</div>
+          <div className="kpi-value-lg" style={{ color: avgHealth >= 75 ? C.accent3 : C.yellow }}>{avgHealth}%</div>
           <div style={{ height:3, background:'var(--surface2)', borderRadius:2, marginTop:6, overflow:'hidden' }}>
             <div style={{ width:`${avgHealth}%`, height:'100%', background: avgHealth >= 75 ? C.accent3 : C.yellow, borderRadius:2, transition:'width 0.4s' }}/>
           </div>
@@ -174,7 +179,7 @@ export default function Analytics({ agents, clients, columns, leads }) {
 
         {/* Revenue chart with series toggles + timeframe */}
         <article className="card" aria-label="Revenue and profit chart">
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12, flexWrap:'wrap', gap:6 }}>
+          <div className="flex-between" style={{ marginBottom:12, flexWrap:'wrap', gap:6 }}>
             <div className="section-label">Revenue & Profit</div>
             <div style={{ display:'flex', gap:4, alignItems:'center', flexWrap:'wrap' }}>
               {SERIES.map(s => (
@@ -228,7 +233,7 @@ export default function Analytics({ agents, clients, columns, leads }) {
         {/* Pipeline Funnel */}
         <article className="card" aria-label="Pipeline funnel">
           <div className="section-label" style={{ marginBottom:14 }}>Pipeline Funnel</div>
-          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          <div className="form-stack" style={{ gap:10 }}>
             {funnelRows.map((row, i) => {
               const prev2 = funnelRows[i - 1];
               const convRate = prev2 && prev2.count > 0
@@ -281,13 +286,13 @@ export default function Analytics({ agents, clients, columns, leads }) {
 
       {/* ── Agent Performance Table ───────────────────────────── */}
       <article className="card mb-14" aria-label="Agent performance table">
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+        <div className="flex-between" style={{ marginBottom:14 }}>
           <div className="section-label">Agent Performance</div>
           <span style={{ fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)' }}>Click headers to sort</span>
         </div>
-        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+        <table className="table">
           <thead>
-            <tr style={{ borderBottom:'1px solid var(--border)' }}>
+            <tr>
               <SortTh col="name"        label="Agent"       align="left"/>
               <SortTh col={null}        label="Status"      />
               <SortTh col="tasks"       label="Tasks"       />
@@ -347,7 +352,7 @@ export default function Analytics({ agents, clients, columns, leads }) {
       </article>
 
       {/* ── Bottom Charts Row ─────────────────────────────────── */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14 }}>
+      <div className="grid-3" style={{ gap:14 }}>
 
         {/* Revenue by Client — clickable pie */}
         <article className="card" aria-label="Revenue by client pie chart">
@@ -414,7 +419,7 @@ export default function Analytics({ agents, clients, columns, leads }) {
               <Bar dataKey="created"   fill={C.accent3} radius={[3,3,0,0]} name="Created" opacity={0.6}/>
             </BarChart>
           </ResponsiveContainer>
-          <div style={{ display:'flex', gap:12, justifyContent:'center', marginTop:6 }}>
+          <div className="legend">
             {[{l:'Completed', c:C.accent}, {l:'Created', c:C.accent3}].map(s => (
               <div key={s.l} style={{ display:'flex', alignItems:'center', gap:4, fontSize:10, color:'var(--muted)' }}>
                 <span style={{ width:8, height:8, borderRadius:2, background:s.c, display:'inline-block' }}/>
@@ -437,7 +442,7 @@ export default function Analytics({ agents, clients, columns, leads }) {
               ))}
             </LineChart>
           </ResponsiveContainer>
-          <div style={{ display:'flex', flexWrap:'wrap', gap:8, justifyContent:'center', marginTop:6 }}>
+          <div className="legend">
             {agents.slice(0,4).map((a, i) => (
               <div key={a.id} style={{ display:'flex', alignItems:'center', gap:4, fontSize:10, color:'var(--muted)' }}>
                 <span style={{ width:14, height:3, borderRadius:2, background:LINE_COLORS[i], display:'inline-block' }}/>

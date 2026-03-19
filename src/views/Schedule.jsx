@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Badge, ProgressBar } from '../components/ui/index.jsx';
 import { C } from '../theme.js';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
+import EmptyState from '../components/ui/EmptyState.jsx';
 
 const TYPE_COLORS = {
   'meeting':   C.yellow,
@@ -52,7 +53,7 @@ function EventModal({ onAdd, onClose }) {
     >
       <div className="modal" onClick={e => e.stopPropagation()}>
         <h2 id="ev-modal-title" className="modal-title">Add Event</h2>
-        <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        <form onSubmit={handleSubmit} className="form-stack">
           <input
             ref={inputRef}
             className="input"
@@ -61,9 +62,9 @@ function EventModal({ onAdd, onClose }) {
             onChange={e => setTitle(e.target.value)}
             required
           />
-          <div style={{ display:'flex', gap:8 }}>
+          <div className="flex-center gap-8">
             <div style={{ flex:1 }}>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Time</label>
+              <label className="settings-label form-label">Time</label>
               <input
                 className="input"
                 type="time"
@@ -72,7 +73,7 @@ function EventModal({ onAdd, onClose }) {
               />
             </div>
             <div style={{ flex:1 }}>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Duration (min)</label>
+              <label className="settings-label form-label">Duration (min)</label>
               <input
                 className="input"
                 type="number"
@@ -84,8 +85,8 @@ function EventModal({ onAdd, onClose }) {
             </div>
           </div>
           <div>
-            <label className="settings-label" style={{ display:'block', marginBottom:6 }}>Type</label>
-            <div style={{ display:'flex', gap:6 }}>
+            <label className="settings-label form-label">Type</label>
+            <div className="flex-center gap-6">
               {TYPE_OPTIONS.map(t => (
                 <button
                   key={t}
@@ -103,7 +104,7 @@ function EventModal({ onAdd, onClose }) {
               ))}
             </div>
           </div>
-          <div style={{ display:'flex', gap:8, marginTop:4 }}>
+          <div className="form-actions">
             <button type="button" className="btn btn--ghost" style={{ flex:1 }} onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn--primary" style={{ flex:1 }}>Add Event</button>
           </div>
@@ -119,7 +120,7 @@ const now = new Date();
 const hr  = now.getHours();
 const dateStr = now.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
 
-export default function Schedule({ schedule, setSchedule }) {
+export default function Schedule({ schedule, setSchedule, openConfirm }) {
   const [showModal,    setShowModal]    = useState(false);
   const [gcalStatus,   setGcalStatus]   = useState('unknown'); // 'unknown' | 'disconnected' | 'connected' | 'loading'
   const [gcalEvents,   setGcalEvents]   = useState([]);
@@ -197,12 +198,12 @@ export default function Schedule({ schedule, setSchedule }) {
 
   return (
     <section className="view view--narrow" aria-labelledby="schedule-title">
-      <header className="view-header" style={{ marginBottom:18 }}>
+      <header className="view-header">
         <div>
           <h1 id="schedule-title" className="view-title">Today's Schedule</h1>
           <p className="view-subtitle">{dateStr}</p>
         </div>
-        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+        <div className="flex-center gap-8">
           {gcalStatus === 'disconnected' && (
             <button
               className="btn btn--sm"
@@ -241,15 +242,13 @@ export default function Schedule({ schedule, setSchedule }) {
         ].map((s, i) => (
           <div key={i} className="card card--sm" role="listitem">
             <div className="kpi-label">{s.l}</div>
-            <div style={{ fontSize:18, fontWeight:700, color:s.c, fontFamily:'var(--mono)' }}>{s.v}</div>
+            <div className="kpi-value-lg" style={{ color:s.c, fontSize:18 }}>{s.v}</div>
           </div>
         ))}
       </div>
 
-      {sorted.length === 0 && (
-        <div style={{ textAlign:'center', padding:'48px 0', color:'var(--muted)', fontSize:13 }}>
-          No events scheduled — click "+ Add Event" to get started.
-        </div>
+      {(schedule ?? []).length === 0 && (
+        <EmptyState icon="📅" title="Schedule is clear" subtitle="Add events or connect Google Calendar to see your agenda" />
       )}
 
       {/* Timeline */}
@@ -292,15 +291,22 @@ export default function Schedule({ schedule, setSchedule }) {
               >
                 <div className="schedule-entry__head">
                   <span className="schedule-entry__title">{e.title}</span>
-                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <div className="flex-center gap-6">
                     {e.source === 'google'
                       ? <span style={{ fontSize:9, fontFamily:'var(--mono)', color:GCAL_COLOR, border:`1px solid ${GCAL_COLOR}`, borderRadius:4, padding:'1px 5px' }}>Google</span>
                       : <Badge label={e.type.replace('-',' ')} color={e.cl}/>
                     }
                     {e.source !== 'google' && (
                       <button
-                        style={{ background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:14, lineHeight:1, padding:'0 2px' }}
-                        onClick={() => window.confirm(`Remove "${e.title}"?`) && deleteEvent(e.id ?? i)}
+                        className="close-btn"
+                        style={{ fontSize:14, padding:'0 2px' }}
+                        onClick={() => openConfirm({
+                          title: `Remove "${e.title}"?`,
+                          message: 'Are you sure you want to remove this event?',
+                          confirmLabel: 'Remove Event',
+                          danger: true,
+                          onConfirm: () => deleteEvent(e.id ?? i),
+                        })}
                         aria-label={`Delete event: ${e.title}`}
                       >×</button>
                     )}

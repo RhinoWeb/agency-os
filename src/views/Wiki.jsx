@@ -12,6 +12,7 @@ const SECTIONS = [
   { id: 'settings', label: 'Settings',             icon: '⚙' },
   { id: 'leads',    label: 'Lead Finder',          icon: '◉' },
   { id: 'campaigns',label: 'Campaigns',            icon: '📨' },
+  { id: 'leadgen', label: 'Lead Gen Automation',   icon: '🔥' },
   { id: 'shortcuts',label: 'Keyboard Shortcuts',   icon: '⌨' },
   { id: 'faq',      label: 'FAQ & Troubleshooting',icon: '❓' },
 ];
@@ -326,6 +327,225 @@ const CONTENT = {
       ]},
     ],
   },
+  leadgen: {
+    title: 'Lead Gen Automation — Complete Guide',
+    body: [
+      { type: 'p', text: 'Agency OS includes a fully automated lead-to-meeting pipeline designed to book 30–50 calls per month with minimal manual effort. This guide covers every piece of the system.' },
+
+      { type: 'h2', text: 'Pipeline Overview' },
+      { type: 'p', text: 'The automation flows through 6 stages. Each stage can run independently or be chained together for full autopilot:' },
+      { type: 'steps', items: [
+        'Lead Sourcing — Apify scrapes LinkedIn, Google Maps, Apollo, or Sales Navigator on a schedule',
+        'Auto-Import — Scraped results are deduplicated, normalized, and added to your pipeline automatically',
+        'AI Scoring — Each lead is scored 0–100 against your ICP (Ideal Customer Profile) using AI',
+        'Campaign Enrollment — Leads above your score threshold are auto-enrolled into the matching campaign',
+        'Reply Classification — Incoming replies are captured via webhook, classified by AI (positive/negative/neutral/etc.), and queued',
+        'Meeting Booking — Positive replies trigger automatic Zoom meeting creation + Google Calendar event + CRM deal',
+      ]},
+
+      { type: 'h2', text: 'Required API Keys' },
+      { type: 'p', text: 'Add these to your .env file in the project root. Only the AI key is strictly required — everything else enables specific features:' },
+      { type: 'table', headers: ['Key', 'Purpose', 'Where to Get It'], rows: [
+        ['MINIMAX_API_KEY or OPENAI_API_KEY or GROQ_API_KEY or ANTHROPIC_API_KEY', 'AI engine — reply classification, lead scoring, sequence generation, autopilot briefings', 'minimax.io / platform.openai.com / console.groq.com / console.anthropic.com'],
+        ['APIFY_API_KEY', 'Lead scraping — runs actors for LinkedIn, Google Maps, Apollo, Sales Nav', 'console.apify.com → Settings → Integrations → API Token'],
+        ['INSTANTLY_API_KEY', 'Cold email — creates campaigns, enrolls leads, sends sequences, captures replies', 'app.instantly.ai → Settings → Integrations → API Key'],
+        ['ZOOM_CLIENT_ID + ZOOM_CLIENT_SECRET + ZOOM_ACCOUNT_ID', 'Creates Zoom meeting links for booked calls', 'marketplace.zoom.us → Build App → Server-to-Server OAuth → Credentials'],
+        ['GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET', 'Google Calendar — reads schedule, creates meeting events with attendees', 'console.cloud.google.com → APIs & Services → Credentials → OAuth 2.0 Client IDs'],
+        ['CAL_COM_API_KEY', 'Cal.com self-scheduling — leads pick their own meeting time, team round-robin', 'cal.com → Settings → Developer → API Keys'],
+      ]},
+      { type: 'code', text: '# .env example — minimum setup\nMINIMAX_API_KEY=your-key-here\nAPFIY_API_KEY=your-key-here\nINSTANTLY_API_KEY=your-key-here\n\n# Optional: Zoom meetings\nZOOM_CLIENT_ID=your-id\nZOOM_CLIENT_SECRET=your-secret\nZOOM_ACCOUNT_ID=your-account-id\n\n# Optional: Google Calendar\nGOOGLE_CLIENT_ID=your-id.apps.googleusercontent.com\nGOOGLE_CLIENT_SECRET=your-secret\n\n# Optional: Cal.com self-scheduling\nCAL_COM_API_KEY=your-cal-com-key' },
+      { type: 'p', text: 'After editing .env, restart the server (Ctrl+C → npm run dev). Keys are loaded once at startup.' },
+
+      { type: 'h2', text: 'Step 1: Configure Auto-Source' },
+      { type: 'p', text: 'Go to Lead Finder → Auto-Source tab. This is where you control the top of funnel.' },
+      { type: 'steps', items: [
+        'Set your ICP Description — describe your ideal customer (e.g., "B2B SaaS founders, 10-50 employees, US-based, Series A+")',
+        'Set the Score Threshold slider — leads scoring above this number get auto-enrolled (default: 65)',
+        'Add a Scrape Schedule — select an Apify actor, paste a search URL, set frequency (e.g., every 12 hours), max leads per run',
+        'The scheduler runs server-side — even if you close the browser, scheduled scrapes keep running as long as the server is up',
+      ]},
+      { type: 'table', headers: ['Actor', 'Best For', 'Input'], rows: [
+        ['LinkedIn Profile Scraper', 'Targeting specific people by title/company', 'LinkedIn search URL or profile URLs'],
+        ['Google Maps Scraper', 'Local businesses (agencies, restaurants, clinics)', 'Google Maps search URL'],
+        ['Apollo.io Scraper', 'B2B leads with verified emails', 'Apollo search URL with filters'],
+        ['Sales Navigator Scraper', 'Enterprise/high-value B2B targeting', 'Sales Nav search URL'],
+        ['Google Search Scraper', 'Custom search queries, directories, lists', 'Google search query'],
+      ]},
+
+      { type: 'h2', text: 'Step 2: Create a Campaign' },
+      { type: 'p', text: 'Go to Campaigns → + New Campaign. The 4-step wizard walks you through:' },
+      { type: 'steps', items: [
+        'Select Leads — pick leads from your pipeline (or let Auto-Source auto-enroll them later)',
+        'Write Brief — describe your offer, select tone, add a proof point. This brief is used for AI scoring and sequence generation.',
+        'Generate Sequence — AI writes a 12-step cold email sequence (~50 days). Review and edit any step before launching.',
+        'Launch — campaign is saved locally AND pushed to Instantly.ai (if API key is set). Emails start sending automatically.',
+      ]},
+      { type: 'p', text: 'Tip: Create your campaign first (even with 0 leads), set up Auto-Source to target the same ICP, and leads will auto-enroll as they score above threshold.' },
+
+      { type: 'h2', text: 'Step 3: Reply Handling' },
+      { type: 'p', text: 'When a prospect replies to your email sequence, the system handles it automatically:' },
+      { type: 'steps', items: [
+        'Instantly.ai fires a webhook to your server at /api/instantly/webhook',
+        'The server\'s AI classifies the reply into one of 6 intents: POSITIVE, NEGATIVE, NEUTRAL, UNSUBSCRIBE, REFERRAL, or MAYBE_LATER',
+        'The reply is queued with its classification, confidence score, and AI summary',
+        'The frontend polls every 30 seconds, matches replies to leads, and updates their status',
+        'You can see all replies in Campaigns → click a campaign → Reply Inbox with colored classification badges',
+      ]},
+      { type: 'table', headers: ['Classification', 'Color', 'What It Means'], rows: [
+        ['POSITIVE', 'Green', 'Lead is interested, wants to talk — triggers auto-booking if enabled'],
+        ['MAYBE_LATER', 'Blue', 'Not now but open to future contact — stays in sequence'],
+        ['NEUTRAL', 'Grey', 'Ambiguous reply — needs manual review'],
+        ['REFERRAL', 'Cyan', 'Referred to someone else — check for new lead info'],
+        ['NEGATIVE', 'Orange', 'Not interested — removed from sequence'],
+        ['UNSUBSCRIBE', 'Red', 'Wants off the list — auto-removed'],
+      ]},
+      { type: 'p', text: 'Instantly webhook setup: In Instantly → Settings → Webhooks → add your server URL (e.g., https://your-domain.com/api/instantly/webhook). Select "Reply Received" events.' },
+
+      { type: 'h2', text: 'Step 4: Auto-Booking' },
+      { type: 'p', text: 'Two booking modes are available. Choose in Lead Finder → Auto-Source → Booking Mode:' },
+      { type: 'table', headers: ['Mode', 'How It Works', 'Best For'], rows: [
+        ['Fixed Time', 'System auto-books next business day at 10 AM — creates Zoom + Calendar event automatically', 'Solo founders, small teams, quick turnaround'],
+        ['Self-Schedule (Cal.com)', 'System generates a Cal.com booking link — lead picks their own time from your availability', 'Sales teams, round-robin, higher show rates, scaling'],
+      ]},
+      { type: 'h2', text: 'Fixed Time Mode' },
+      { type: 'steps', items: [
+        'Enable auto-booking: Lead Finder → Auto-Source → toggle "Auto-book positive replies"',
+        'Set Booking Mode to "Fixed Time"',
+        'The system schedules a 30-minute call on the next business day at 10:00 AM',
+        'Zoom meeting + Google Calendar event are created automatically',
+        'The lead receives a calendar invite with the Zoom link',
+      ]},
+      { type: 'h2', text: 'Cal.com Self-Schedule Mode' },
+      { type: 'steps', items: [
+        'Add CAL_COM_API_KEY to your .env file (get it from cal.com → Settings → Developer → API Keys)',
+        'Restart the server — the Auto-Source tab will show "CONNECTED" status',
+        'Set Booking Mode to "Self-Schedule (Cal.com)"',
+        'Select the Event Type to use for booking links (e.g., "30 Min Discovery Call")',
+        'When a positive reply arrives, the system generates a personalized Cal.com link',
+        'The lead\'s name and email are pre-filled — they just pick a time slot',
+        'When the lead books, Cal.com fires a webhook → the system auto-updates lead status + creates CRM deal',
+      ]},
+      { type: 'p', text: 'Team & Round-Robin: Create a team event type in Cal.com (cal.com → Teams → Event Types → Round Robin). Select it in Auto-Source → the booking links will automatically distribute calls across your sales team.' },
+      { type: 'p', text: 'Manual booking: Click "Book Call" on any lead in the Reply Inbox. If Cal.com is configured, you\'ll see a toggle to choose Fixed Time or Self-Schedule.' },
+      { type: 'p', text: 'Graceful degradation: Zoom, GCal, and Cal.com are all optional. If none are configured, booking still updates lead status and creates CRM records.' },
+
+      { type: 'h2', text: 'Step 5: CRM Auto-Sync' },
+      { type: 'p', text: 'When a meeting is booked (automatically or manually), the system creates CRM records:' },
+      { type: 'list', items: [
+        'A CRM Contact is created (or matched if one exists with the same email)',
+        'A CRM Company is created (or matched by company name)',
+        'A Deal is created in the "Qualified" pipeline stage, tagged "outbound" + "auto-created"',
+        'The deal links back to the source lead and campaign for full attribution',
+        'Auto-created deals show an "AUTO" badge in the Deal Pipeline view',
+      ]},
+
+      { type: 'h2', text: 'Step 6: Monitor the Pipeline' },
+      { type: 'p', text: 'Go to Dashboard → scroll to the Lead-to-Meeting Pipeline section. The funnel shows:' },
+      { type: 'list', items: [
+        'Leads Sourced — total leads imported into the system',
+        'Enrolled — leads currently in an active campaign',
+        'Replies — total replies received',
+        'Positive — replies classified as POSITIVE or MAYBE_LATER',
+        'Booked — meetings successfully scheduled',
+        'Conversion rates between each stage',
+        'Goal tracker: progress toward your 30–50 calls/month target, with projected month-end rate',
+      ]},
+
+      { type: 'h2', text: 'Automation Toggles' },
+      { type: 'p', text: 'All found in Lead Finder → Auto-Source tab:' },
+      { type: 'table', headers: ['Toggle', 'What It Does', 'Default'], rows: [
+        ['Score Threshold', 'Leads scoring above this number auto-enroll into the matching campaign', '65'],
+        ['Auto-book positive replies', 'POSITIVE replies with ≥85% confidence auto-book a meeting', 'Off'],
+        ['Autopilot auto-execute', 'The AI Autopilot briefing executes suggested actions automatically (enroll leads, book calls, create deals)', 'Off'],
+      ]},
+      { type: 'p', text: 'Start with all toggles OFF. Monitor the pipeline for a week, verify AI classifications are accurate, then enable auto-booking first, then auto-execute.' },
+
+      { type: 'h2', text: 'Campaign Stats Sync' },
+      { type: 'p', text: 'Campaign stats (sent, opens, replies, bounces) sync from Instantly every 5 minutes automatically. No action needed — stats appear on campaign cards and in the Dashboard funnel.' },
+
+      { type: 'h2', text: 'The Math: Hitting 30–50 Calls/Month' },
+      { type: 'list', items: [
+        'Cold email positive reply rate: ~1–2% of emails sent',
+        'Positive-to-booked conversion: ~50–70%',
+        'Need: ~3,000–5,000 emails/month (100–170/day)',
+        'Need: ~100–200 fresh leads/week',
+        'With auto-sourcing every 12 hours pulling 50–100 leads per run, you hit the volume easily',
+        'The Dashboard goal tracker shows your real-time progress and projected month-end booking count',
+      ]},
+
+      { type: 'h2', text: 'Google Calendar Setup' },
+      { type: 'steps', items: [
+        'Go to console.cloud.google.com → create a project (or select existing)',
+        'Enable the Google Calendar API under APIs & Services → Library',
+        'Go to Credentials → Create Credentials → OAuth 2.0 Client ID',
+        'Application type: Web application',
+        'Add redirect URI: http://localhost:3001/api/gcal/callback',
+        'Copy Client ID and Client Secret into your .env file',
+        'Restart the server, then go to Agency OS → Schedule tab',
+        'Click "Connect Google Calendar" — a browser window opens for OAuth consent',
+        'After authorizing, your calendar events appear in the Schedule view',
+      ]},
+
+      { type: 'h2', text: 'Zoom Setup' },
+      { type: 'steps', items: [
+        'Go to marketplace.zoom.us → Develop → Build App',
+        'Choose "Server-to-Server OAuth" app type',
+        'Name your app (e.g., "Agency OS Meetings")',
+        'Copy the Account ID, Client ID, and Client Secret into your .env file',
+        'Under Scopes, add: meeting:write:admin (Create meetings)',
+        'Activate the app',
+        'Restart the server — Zoom meeting links will now auto-attach to booked calls',
+      ]},
+
+      { type: 'h2', text: 'Cal.com Setup' },
+      { type: 'steps', items: [
+        'Go to cal.com → sign up or log in',
+        'Create an Event Type (e.g., "30 Min Discovery Call") — or use a Team Round Robin type for sales teams',
+        'Go to Settings → Developer → API Keys → create a new key',
+        'Copy the key into your .env file as CAL_COM_API_KEY',
+        'Restart the server',
+        'In Agency OS → Lead Finder → Auto-Source → set Booking Mode to "Self-Schedule (Cal.com)"',
+        'Select your event type from the dropdown — booking links will now use this',
+      ]},
+      { type: 'h2', text: 'Cal.com Webhook (for auto-updates)' },
+      { type: 'steps', items: [
+        'In Cal.com → Settings → Developer → Webhooks → Add',
+        'URL: https://your-domain.com/api/cal/webhook (use ngrok for local dev)',
+        'Events: Booking Created, Booking Cancelled, Booking Rescheduled',
+        'When a lead books through their link, the webhook fires → Agency OS auto-updates lead status + creates CRM deal',
+      ]},
+      { type: 'p', text: 'Without the webhook: Agency OS still generates booking links, but you\'ll need to manually mark leads as booked after they schedule.' },
+
+      { type: 'h2', text: 'Troubleshooting' },
+      { type: 'h2', text: 'Replies not appearing?' },
+      { type: 'list', items: [
+        'Check that your Instantly webhook URL is correct and publicly accessible (ngrok for local dev)',
+        'The server must be running — webhooks are processed in real-time',
+        'Check server console for "Instantly webhook:" log entries',
+        'Verify the webhook event type is "reply_received" in Instantly settings',
+      ]},
+      { type: 'h2', text: 'Auto-booking not working?' },
+      { type: 'list', items: [
+        'Confirm "Auto-book positive replies" is toggled ON in Auto-Source tab',
+        'Auto-book only triggers for POSITIVE intent with ≥85% confidence — check the classification badge',
+        'Zoom and GCal are optional but recommended — booking still works without them (status update + CRM deal)',
+        'Check the server console for booking errors',
+      ]},
+      { type: 'h2', text: 'Scrape schedules not running?' },
+      { type: 'list', items: [
+        'Schedules run server-side — the server must be running 24/7 for scheduled scrapes',
+        'Check that APIFY_API_KEY is set in .env and the server was restarted after adding it',
+        'The scheduler checks every 30 minutes — new schedules may take up to 30 min for first run',
+        'Overdue schedules (missed while server was down) auto-run within 60 seconds of server start',
+      ]},
+      { type: 'h2', text: 'AI scoring returns low scores?' },
+      { type: 'list', items: [
+        'Make your ICP description specific — generic descriptions produce generic scores',
+        'Include: target industry, company size, job title seniority, geography, and any disqualifiers',
+        'AI scoring uses whatever AI provider is configured — better models (GPT-4, Claude) give better scores',
+      ]},
+    ],
+  },
   shortcuts: {
     title: 'Keyboard Shortcuts',
     body: [
@@ -397,17 +617,17 @@ function Block({ b }) {
 
   if (b.type === 'table') return (
     <div style={{ overflowX:'auto', marginBottom:16 }}>
-      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11, fontFamily:'var(--mono)' }}>
+      <table className="table">
         <thead>
           <tr>{b.headers.map((h, i) => (
-            <th key={i} style={{ padding:'7px 12px', textAlign:'left', borderBottom:'1px solid var(--border)', color:'var(--muted)', fontSize:10, textTransform:'uppercase', letterSpacing:1 }}>{h}</th>
+            <th key={i}>{h}</th>
           ))}</tr>
         </thead>
         <tbody>
           {b.rows.map((row, i) => (
-            <tr key={i} style={{ borderBottom:'1px solid var(--border)' }}>
+            <tr key={i}>
               {row.map((cell, j) => (
-                <td key={j} style={{ padding:'8px 12px', color: j===0 ? 'var(--dim)' : 'var(--muted)' }}>{cell}</td>
+                <td key={j} style={{ color: j===0 ? 'var(--dim)' : 'var(--muted)' }}>{cell}</td>
               ))}
             </tr>
           ))}
@@ -435,7 +655,7 @@ export default function Wiki() {
 
   return (
     <section className="view" aria-labelledby="wiki-title">
-      <header style={{ marginBottom: 16 }}>
+      <header className="view-header" style={{ marginBottom: 16 }}>
         <h1 id="wiki-title" className="view-title">📖 Wiki</h1>
         <p className="view-subtitle">How to use every part of Agency OS</p>
       </header>
@@ -464,7 +684,7 @@ export default function Wiki() {
             </button>
           ))}
           {matchingSections.length === 0 && (
-            <div style={{ fontSize:10, color:'var(--muted)', fontFamily:'var(--mono)', padding:'8px 12px' }}>No results</div>
+            <div className="empty-msg" style={{ padding:'8px 12px', fontSize:10 }}>No results</div>
           )}
           <div style={{ marginTop:16, paddingTop:12, borderTop:'1px solid var(--border)' }}>
             <a

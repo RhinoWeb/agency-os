@@ -52,7 +52,7 @@ export default function Profile({ profile, setProfile, agents, clients, allTasks
 
   return (
     <section className="view" style={{ maxWidth: 800 }} aria-labelledby="profile-title">
-      <header style={{ marginBottom: 28 }}>
+      <header className="view-header" style={{ marginBottom: 28 }}>
         <h1 id="profile-title" className="view-title">Profile</h1>
         <p className="view-subtitle">Your personal workspace identity</p>
       </header>
@@ -128,7 +128,7 @@ export default function Profile({ profile, setProfile, agents, clients, allTasks
               </div>
             )}
 
-            <div style={{ marginTop: 16, fontSize: 18, fontWeight: 700, fontFamily: 'var(--sans)' }}>
+            <div className="heading-md" style={{ marginTop: 16 }}>
               {profile.name || 'Your Name'}
             </div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>
@@ -144,7 +144,7 @@ export default function Profile({ profile, setProfile, agents, clients, allTasks
           {/* Agency stats */}
           <div className="card" style={{ marginTop: 14 }}>
             <div className="section-label mb-12">Agency Stats</div>
-            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+            <div className="form-stack" style={{ gap:12 }}>
               {[
                 { label:'MRR',           value:`$${(mrr/1000).toFixed(1)}k`,                 color:C.accent,  pct: Math.min(100, (mrr/50000)*100) },
                 { label:'Fleet Eff.',    value:`${fleetEff}%`,                               color:C.accent3, pct: fleetEff },
@@ -153,7 +153,7 @@ export default function Profile({ profile, setProfile, agents, clients, allTasks
                 { label:'Active Agents', value:`${agents.filter(a=>a.status==='active').length}/${agents.length}`, color:C.green, pct: agents.length ? (agents.filter(a=>a.status==='active').length/agents.length)*100 : 0 },
               ].map((s, i) => (
                 <div key={i}>
-                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                  <div className="flex-between" style={{ marginBottom:4 }}>
                     <span style={{ fontSize:10, color:'var(--muted)', fontFamily:'var(--mono)', textTransform:'uppercase', letterSpacing:1 }}>{s.label}</span>
                     <span style={{ fontSize:11, fontWeight:700, fontFamily:'var(--mono)', color:s.color }}>{s.value}</span>
                   </div>
@@ -168,7 +168,7 @@ export default function Profile({ profile, setProfile, agents, clients, allTasks
         <div className="card" style={{ padding:24 }}>
           <div className="section-label mb-16">Edit Profile</div>
 
-          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          <div className="form-stack" style={{ gap:14 }}>
             <div>
               <label className="settings-label" htmlFor="prof-name">Display Name</label>
               <input id="prof-name" className="input" value={profile.name}

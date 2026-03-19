@@ -6,6 +6,7 @@ import { dirname, join } from 'path';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
 import { createHmac, randomUUID } from 'crypto';
+import db from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -31,6 +32,9 @@ function rateLimit(windowMs, maxRequests) {
     next();
   };
 }
+
+// ── Health check ────────────────────────────────────────────────
+app.get('/api/health', (req, res) => res.json({ ok: true, uptime: process.uptime() }));
 
 // ── Provider configs (all OpenAI-compatible except Anthropic) ─
 const PROVIDERS = {
@@ -210,6 +214,13 @@ app.post('/api/autopilot/briefing', rateLimit(60000, 5), async (req, res) => {
   const model   = clientModel || cfg.defaultModel;
   const context = buildAutopilotContext({ agents, allTasks, clients, leads, campaigns });
 
+  // Pipeline summary for autopilot context
+  const positiveLeads = (leads ?? []).filter(l => l.replyStatus === 'positive' || l.replyClassification?.intent === 'POSITIVE');
+  const unbookedPositive = positiveLeads.filter(l => !l.bookedMeeting);
+  const highScoreUnenrolled = (leads ?? []).filter(l => l.status === 'lead' && !l.campaignId && (l.leadScore ?? 0) >= 65);
+  const activeCamps = (campaigns ?? []).filter(c => c.status === 'active');
+  const pipelineContext = `\nPipeline: ${positiveLeads.length} positive replies (${unbookedPositive.length} unbooked), ${highScoreUnenrolled.length} high-score leads not enrolled, ${activeCamps.length} active campaigns.`;
+
   const SYSTEM = `You are Agency OS Autopilot — an autonomous agency operations agent.
 Analyze the agency state below and generate a 7 AM morning briefing.
 Return ONLY valid JSON (no markdown, no explanation) with this exact shape:
@@ -217,12 +228,14 @@ Return ONLY valid JSON (no markdown, no explanation) with this exact shape:
   "briefing": "2-3 sentence morning summary of agency health and priorities",
   "assignments": [{"taskTitle": "exact task title from state", "agent": "agent name", "priority": "high|medium|low"}],
   "flagged": [{"type": "client|lead|task", "name": "name", "reason": "one-sentence reason"}],
-  "topActions": ["action 1", "action 2", "action 3"]
+  "topActions": ["action 1", "action 2", "action 3"],
+  "autoActions": [{"type": "enroll_leads|book_call|create_deal", "leadId": "id", "campaignId": "id or null", "reason": "short reason"}]
 }
 Keep assignments to the top 3 highest-priority unassigned or backlogged tasks.
-Keep flagged to real risks only (at-risk clients, overdue tasks, hot leads going cold).`;
+Keep flagged to real risks only (at-risk clients, overdue tasks, hot leads going cold).
+autoActions: suggest up to 5 automated actions — enroll high-score leads into active campaigns, book calls with positive unbooked leads, etc. Only suggest if there are real actionable items.`;
 
-  const USER = `Agency state as of 7:00 AM:\n\n${context}\n\nGenerate the morning briefing JSON.`;
+  const USER = `Agency state as of 7:00 AM:\n\n${context}${pipelineContext}\n\nGenerate the morning briefing JSON.`;
 
   try {
     let text;
@@ -611,7 +624,7 @@ app.post('/api/ai-browse', rateLimit(60000, 10), async (req, res) => {
 
 // ── Google Calendar OAuth ─────────────────────────────────────
 const GCAL_TOKEN_PATH = join(__dirname, '.gcal-token.json');
-const GCAL_SCOPES     = 'https://www.googleapis.com/auth/calendar.readonly';
+const GCAL_SCOPES     = 'https://www.googleapis.com/auth/calendar.events';
 const GCAL_AUTH_URL   = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GCAL_TOKEN_URL  = 'https://oauth2.googleapis.com/token';
 const GCAL_EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
@@ -749,6 +762,56 @@ app.get('/api/gcal/events', async (req, res) => {
   }
 });
 
+// Create a calendar event
+app.post('/api/gcal/create-event', async (req, res) => {
+  let token = loadGcalToken();
+  if (!token) return res.status(401).json({ error: 'Google Calendar not connected' });
+
+  // Refresh if expired
+  if (token.expiry_date && Date.now() > token.expiry_date) {
+    try {
+      const r = await fetch(GCAL_TOKEN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type:    'refresh_token',
+          refresh_token: token.refresh_token,
+          client_id:     process.env.GOOGLE_CLIENT_ID,
+          client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) return res.status(401).json({ error: 'Token refresh failed' });
+      token = { ...token, access_token: d.access_token, expiry_date: Date.now() + d.expires_in * 1000 };
+      saveGcalToken(token);
+    } catch { return res.status(401).json({ error: 'Token refresh failed' }); }
+  }
+
+  const { summary, description, startTime, endTime, attendeeEmail, meetingLink } = req.body;
+  if (!summary || !startTime || !endTime) return res.status(400).json({ error: 'summary, startTime, endTime required' });
+
+  const event = {
+    summary,
+    description: meetingLink ? `${description ?? ''}\n\nJoin Zoom: ${meetingLink}`.trim() : (description ?? ''),
+    start: { dateTime: startTime, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+    end:   { dateTime: endTime,   timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+  };
+  if (attendeeEmail) event.attendees = [{ email: attendeeEmail }];
+
+  try {
+    const r = await fetch(`${GCAL_EVENTS_URL}?sendUpdates=all`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(event),
+    });
+    const d = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: d.error?.message ?? 'Calendar error' });
+    res.json({ eventId: d.id, htmlLink: d.htmlLink, hangoutLink: d.hangoutLink ?? null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Disconnect
 app.post('/api/gcal/disconnect', (req, res) => {
   try {
@@ -847,6 +910,186 @@ app.post('/api/apify/normalize', async (req, res) => {
   res.json({ leads, count: leads.length });
 });
 
+// AI-powered lead scoring against ICP
+app.post('/api/ai/score-leads', rateLimit(60000, 5), async (req, res) => {
+  const { leads, icp } = req.body;
+  if (!Array.isArray(leads) || !leads.length) return res.status(400).json({ error: 'leads array required' });
+
+  // Find configured provider
+  const providerOrder = ['minimax', 'openai', 'groq', 'anthropic'];
+  let provider, key, prov;
+  for (const p of providerOrder) {
+    const k = process.env[`${p.toUpperCase()}_API_KEY`];
+    if (k && PROVIDERS[p]) { provider = p; key = k; prov = PROVIDERS[p]; break; }
+  }
+  if (!prov) return res.status(400).json({ error: 'No AI provider configured' });
+
+  const batch = leads.slice(0, 25).map((l, i) => `${i+1}. ${l.name} | ${l.title} | ${l.company} | ${l.industry} | ${l.employees} employees | ${l.location}`).join('\n');
+
+  const prompt = `Score these leads 0-100 for fit against this ICP. Higher = better fit.
+
+ICP: ${icp || 'B2B decision makers at companies with 10-500 employees'}
+
+Leads:
+${batch}
+
+Return ONLY a JSON array of objects: [{ "index": 1, "score": 75, "reason": "Senior title, right company size" }, ...]`;
+
+  try {
+    const r = await fetch(prov.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({ model: prov.defaultModel, messages: [{ role: 'user', content: prompt }], max_tokens: 1024 }),
+    });
+    const d = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: d.error?.message ?? 'AI error' });
+    const text = d.choices?.[0]?.message?.content ?? '';
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) return res.status(500).json({ error: 'AI did not return valid JSON' });
+    const scores = JSON.parse(match[0]);
+    res.json({ scores });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Scrape Schedules ─────────────────────────────────────────
+const SCHEDULES_PATH = join(__dirname, 'scrape-schedules.json');
+let scrapeSchedules = [];
+try { if (existsSync(SCHEDULES_PATH)) scrapeSchedules = JSON.parse(readFileSync(SCHEDULES_PATH, 'utf8')); } catch { /* fresh */ }
+
+app.get('/api/apify/schedules', (req, res) => res.json(scrapeSchedules));
+
+app.post('/api/apify/schedule', (req, res) => {
+  const { actorId, input, frequency = 'twice-weekly', enabled = true, label = '' } = req.body;
+  if (!actorId) return res.status(400).json({ error: 'actorId required' });
+  const existing = scrapeSchedules.findIndex(s => s.actorId === actorId && s.label === label);
+  const schedule = { id: existing >= 0 ? scrapeSchedules[existing].id : randomUUID(), actorId, input, frequency, enabled, label, lastRunAt: null };
+  if (existing >= 0) scrapeSchedules[existing] = schedule;
+  else scrapeSchedules.push(schedule);
+  try { writeFileSync(SCHEDULES_PATH, JSON.stringify(scrapeSchedules), 'utf8'); } catch { /* non-critical */ }
+  res.json(schedule);
+});
+
+app.delete('/api/apify/schedule/:id', (req, res) => {
+  scrapeSchedules = scrapeSchedules.filter(s => s.id !== req.params.id);
+  try { writeFileSync(SCHEDULES_PATH, JSON.stringify(scrapeSchedules), 'utf8'); } catch {}
+  res.json({ ok: true });
+});
+
+// ── Server-side schedule executor ─────────────────────────────
+// Tracks auto-runs so the frontend can poll for completed results
+const autoRunResults = []; // { scheduleId, runId, datasetId, status, leads, completedAt }
+
+const FREQ_MS = { daily: 24 * 3600000, 'twice-weekly': 3.5 * 24 * 3600000, weekly: 7 * 24 * 3600000 };
+
+async function executeScheduledRun(schedule) {
+  const key = process.env.APIFY_API_KEY;
+  if (!key) return;
+  console.log(`[Scheduler] Running ${schedule.label ?? schedule.actorId}`);
+  try {
+    // Start the run
+    const r = await fetch(`${APIFY_BASE}/acts/${encodeURIComponent(schedule.actorId)}/runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify(schedule.input ?? {}),
+    });
+    if (!r.ok) { console.warn('[Scheduler] Run failed:', r.status); return; }
+    const d = await r.json();
+    const runId = d.data.id;
+
+    // Update lastRunAt
+    schedule.lastRunAt = new Date().toISOString();
+    try { writeFileSync(SCHEDULES_PATH, JSON.stringify(scrapeSchedules), 'utf8'); } catch {}
+
+    // Track for polling
+    const entry = { scheduleId: schedule.id, runId, datasetId: null, status: 'RUNNING', leads: null, completedAt: null };
+    autoRunResults.push(entry);
+
+    // Poll until complete (check every 15s, max 10 min)
+    let attempts = 0;
+    const poll = setInterval(async () => {
+      attempts++;
+      if (attempts > 40) { clearInterval(poll); entry.status = 'TIMEOUT'; return; }
+      try {
+        const sr = await fetch(`${APIFY_BASE}/actor-runs/${runId}`, { headers: { 'Authorization': `Bearer ${key}` } });
+        const sd = await sr.json();
+        entry.status = sd.data.status;
+        if (sd.data.status === 'SUCCEEDED') {
+          clearInterval(poll);
+          entry.datasetId = sd.data.defaultDatasetId;
+          // Auto-fetch and normalize results
+          const rr = await fetch(`${APIFY_BASE}/datasets/${entry.datasetId}/items?limit=200&clean=true`, { headers: { 'Authorization': `Bearer ${key}` } });
+          const items = await rr.json();
+          entry.leads = items.map(item => ({
+            id: `l-apify-${randomUUID()}`,
+            name: item.fullName ?? item.name ?? (`${item.firstName ?? ''} ${item.lastName ?? ''}`.trim() || 'Unknown'),
+            company: item.companyName ?? item.company ?? '',
+            title: item.jobTitle ?? item.title ?? item.headline ?? '',
+            email: item.email ?? '',
+            linkedIn: item.linkedInUrl ?? item.profileUrl ?? '',
+            status: 'lead', source: 'apify',
+            leadScore: Math.floor(Math.random() * 30) + 50,
+            industry: item.industry ?? '',
+            employees: item.companySize ?? item.employees ?? '',
+            location: item.location ?? item.city ?? '',
+            campaignId: null, sequenceStep: 0, replyStatus: 'none',
+            notes: '', since: new Date().toISOString().split('T')[0], color: '#0066FF',
+          }));
+          entry.completedAt = new Date().toISOString();
+          console.log(`[Scheduler] ${schedule.label ?? schedule.actorId}: ${entry.leads.length} leads ready`);
+        } else if (sd.data.status === 'FAILED' || sd.data.status === 'ABORTED') {
+          clearInterval(poll);
+          entry.completedAt = new Date().toISOString();
+        }
+      } catch { /* retry next poll */ }
+    }, 15000);
+  } catch (err) {
+    console.warn('[Scheduler] Error:', err.message);
+  }
+}
+
+function startScheduler() {
+  // Check every 30 minutes if any schedule is due
+  setInterval(() => {
+    const now = Date.now();
+    for (const sched of scrapeSchedules) {
+      if (!sched.enabled) continue;
+      const interval = FREQ_MS[sched.frequency] ?? FREQ_MS.weekly;
+      const lastRun = sched.lastRunAt ? new Date(sched.lastRunAt).getTime() : 0;
+      if (now - lastRun >= interval) {
+        executeScheduledRun(sched);
+      }
+    }
+  }, 30 * 60000);
+
+  // Also run on startup for any overdue schedules (delayed 60s to let server settle)
+  setTimeout(() => {
+    const now = Date.now();
+    for (const sched of scrapeSchedules) {
+      if (!sched.enabled) continue;
+      const interval = FREQ_MS[sched.frequency] ?? FREQ_MS.weekly;
+      const lastRun = sched.lastRunAt ? new Date(sched.lastRunAt).getTime() : 0;
+      if (now - lastRun >= interval) {
+        executeScheduledRun(sched);
+      }
+    }
+  }, 60000);
+}
+
+// Get auto-run results for frontend polling
+app.get('/api/apify/auto-results', (req, res) => {
+  const pending = autoRunResults.filter(r => r.status === 'SUCCEEDED' && r.leads && !r.claimed);
+  res.json(pending);
+});
+
+// Claim auto-run results (frontend has imported them)
+app.post('/api/apify/auto-results/:runId/claim', (req, res) => {
+  const entry = autoRunResults.find(r => r.runId === req.params.runId);
+  if (entry) entry.claimed = true;
+  res.json({ ok: true });
+});
+
 // ═══════════════════════════════════════════════════════════════
 // ── INSTANTLY routes ───────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════
@@ -917,7 +1160,7 @@ app.get('/api/instantly/stats/:campaignId', async (req, res) => {
 });
 
 // Webhook receiver for Instantly reply events
-app.post('/api/instantly/webhook', express.raw({ type: '*/*' }), (req, res) => {
+app.post('/api/instantly/webhook', express.raw({ type: '*/*' }), async (req, res) => {
   // Verify HMAC if secret is set
   const secret = process.env.INSTANTLY_WEBHOOK_SECRET;
   if (secret) {
@@ -928,8 +1171,29 @@ app.post('/api/instantly/webhook', express.raw({ type: '*/*' }), (req, res) => {
   }
   try {
     const event = JSON.parse(req.body.toString());
-    console.log('[Instantly webhook]', event.event_type, event.lead_email);
-  } catch { /* malformed body */ }
+    const { event_type, lead_email, reply_text, campaign_id, timestamp } = event;
+    console.log('[Instantly webhook]', event_type, lead_email);
+
+    // Process reply events — classify with AI and queue
+    if (event_type && event_type.includes('reply') && lead_email) {
+      const classification = reply_text
+        ? await classifyReply(reply_text)
+        : { intent: 'NEUTRAL', confidence: 0, summary: 'No reply text provided' };
+
+      replyQueue.push({
+        id: randomUUID(),
+        leadEmail: lead_email,
+        replyText: reply_text ?? '',
+        classification,
+        campaignId: campaign_id ?? null,
+        timestamp: timestamp ?? new Date().toISOString(),
+        processed: false,
+      });
+      persistReplies();
+    }
+  } catch (err) {
+    console.warn('[Instantly webhook] parse error:', err.message);
+  }
   res.json({ ok: true });
 });
 
@@ -985,6 +1249,251 @@ app.post('/api/zoom/meeting', async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════
+// ── Booking Orchestrator (Zoom + Google Calendar) ──────────────
+// ═══════════════════════════════════════════════════════════════
+
+app.post('/api/booking/auto', async (req, res) => {
+  const { leadName, leadEmail, company, startTime, durationMin = 30 } = req.body;
+  if (!leadName || !startTime) return res.status(400).json({ error: 'leadName and startTime required' });
+
+  const endTime = new Date(new Date(startTime).getTime() + durationMin * 60000).toISOString();
+  const topic = `Discovery Call — ${leadName} (${company ?? 'Lead'})`;
+  const result = { zoomJoinUrl: null, calendarEventId: null, calendarLink: null, meetingTime: startTime };
+
+  // Step 1: Create Zoom meeting (optional — skip if Zoom not configured)
+  if (process.env.ZOOM_CLIENT_ID) {
+    try {
+      const zr = await fetch(`http://localhost:${PORT}/api/zoom/meeting`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, startTime, durationMin }),
+      });
+      const zd = await zr.json();
+      if (zr.ok) result.zoomJoinUrl = zd.joinUrl;
+    } catch { /* Zoom optional */ }
+  }
+
+  // Step 2: Create Google Calendar event (optional — skip if not connected)
+  try {
+    const gr = await fetch(`http://localhost:${PORT}/api/gcal/create-event`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        summary: topic,
+        description: `Discovery call with ${leadName} from ${company ?? 'N/A'}`,
+        startTime,
+        endTime,
+        attendeeEmail: leadEmail,
+        meetingLink: result.zoomJoinUrl,
+      }),
+    });
+    const gd = await gr.json();
+    if (gr.ok) {
+      result.calendarEventId = gd.eventId;
+      result.calendarLink = gd.htmlLink;
+    }
+  } catch { /* Calendar optional */ }
+
+  // Step 3: If Cal.com is configured and mode is 'calcom', generate a booking link instead
+  if (process.env.CAL_COM_API_KEY && req.body.mode === 'calcom') {
+    try {
+      const calR = await fetch('https://api.cal.com/v1/event-types?apiKey=' + process.env.CAL_COM_API_KEY);
+      const calD = await calR.json();
+      const eventType = calD.event_types?.[0]; // use first / default event type
+      if (eventType) {
+        const calUser = eventType.users?.[0]?.username ?? eventType.team?.slug;
+        const prefix = eventType.team ? `team/${eventType.team.slug}` : calUser;
+        result.calBookingUrl = `https://cal.com/${prefix}/${eventType.slug}?name=${encodeURIComponent(leadName)}&email=${encodeURIComponent(leadEmail || '')}`;
+        result.calEventTypeId = eventType.id;
+      }
+    } catch { /* Cal.com optional */ }
+  }
+
+  res.json(result);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// ── Cal.com Integration ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+
+const CAL_API = 'https://api.cal.com/v1';
+
+// List event types
+app.get('/api/cal/event-types', async (_req, res) => {
+  const key = process.env.CAL_COM_API_KEY;
+  if (!key) return res.status(400).json({ error: 'CAL_COM_API_KEY not set' });
+  try {
+    const r = await fetch(`${CAL_API}/event-types?apiKey=${key}`);
+    const d = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: d.message ?? 'Cal.com error' });
+    // Flatten to what the frontend needs
+    const types = (d.event_types ?? []).map(et => ({
+      id: et.id, title: et.title, slug: et.slug, length: et.length,
+      teamId: et.teamId ?? null, teamSlug: et.team?.slug ?? null,
+      username: et.users?.[0]?.username ?? null,
+      bookingUrl: et.team
+        ? `https://cal.com/team/${et.team.slug}/${et.slug}`
+        : `https://cal.com/${et.users?.[0]?.username ?? 'user'}/${et.slug}`,
+    }));
+    res.json({ eventTypes: types });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Create event type (for programmatic campaign-specific booking pages)
+app.post('/api/cal/event-types', async (req, res) => {
+  const key = process.env.CAL_COM_API_KEY;
+  if (!key) return res.status(400).json({ error: 'CAL_COM_API_KEY not set' });
+  const { title, slug, length = 30, description = '' } = req.body;
+  if (!title) return res.status(400).json({ error: 'title required' });
+  try {
+    const r = await fetch(`${CAL_API}/event-types?apiKey=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, slug: slug ?? title.toLowerCase().replace(/\s+/g, '-'), length, description }),
+    });
+    const d = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: d.message ?? 'Cal.com error' });
+    res.json({ eventType: d.event_type });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Generate booking link for a specific lead + event type
+app.post('/api/cal/booking-link', async (req, res) => {
+  const key = process.env.CAL_COM_API_KEY;
+  if (!key) return res.status(400).json({ error: 'CAL_COM_API_KEY not set' });
+  const { eventTypeId, leadName, leadEmail } = req.body;
+  if (!eventTypeId) return res.status(400).json({ error: 'eventTypeId required' });
+  try {
+    const r = await fetch(`${CAL_API}/event-types?apiKey=${key}`);
+    const d = await r.json();
+    const et = (d.event_types ?? []).find(e => e.id === eventTypeId);
+    if (!et) return res.status(404).json({ error: 'Event type not found' });
+    const prefix = et.team ? `team/${et.team.slug}` : (et.users?.[0]?.username ?? 'user');
+    const params = new URLSearchParams();
+    if (leadName) params.set('name', leadName);
+    if (leadEmail) params.set('email', leadEmail);
+    const url = `https://cal.com/${prefix}/${et.slug}${params.toString() ? '?' + params : ''}`;
+    res.json({ bookingUrl: url, eventType: { id: et.id, title: et.title, slug: et.slug, length: et.length } });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Cal.com webhook receiver (booking created / cancelled / rescheduled)
+const CAL_BOOKINGS_PATH = join(__dirname, 'cal-bookings.json');
+let calBookings = [];
+try { if (existsSync(CAL_BOOKINGS_PATH)) calBookings = JSON.parse(readFileSync(CAL_BOOKINGS_PATH, 'utf8')); } catch { /* fresh start */ }
+function persistCalBookings() { try { writeFileSync(CAL_BOOKINGS_PATH, JSON.stringify(calBookings), 'utf8'); } catch { /* non-critical */ } }
+
+app.post('/api/cal/webhook', (req, res) => {
+  const { triggerEvent, payload } = req.body;
+  if (!triggerEvent || !payload) return res.status(400).json({ error: 'Invalid webhook' });
+
+  const booking = {
+    id: `cal-${payload.bookingId ?? payload.uid ?? Date.now()}`,
+    event: triggerEvent, // BOOKING_CREATED, BOOKING_CANCELLED, BOOKING_RESCHEDULED
+    title: payload.title ?? '',
+    startTime: payload.startTime ?? payload.responses?.startTime ?? null,
+    endTime: payload.endTime ?? null,
+    attendeeEmail: payload.attendees?.[0]?.email ?? payload.responses?.email?.value ?? null,
+    attendeeName: payload.attendees?.[0]?.name ?? payload.responses?.name?.value ?? null,
+    meetingUrl: payload.metadata?.videoCallUrl ?? payload.location ?? null,
+    eventTypeId: payload.eventTypeId ?? null,
+    status: triggerEvent === 'BOOKING_CANCELLED' ? 'cancelled' : 'confirmed',
+    processed: false,
+    receivedAt: new Date().toISOString(),
+  };
+  calBookings.push(booking);
+  persistCalBookings();
+  console.log(`  Cal.com webhook: ${triggerEvent} — ${booking.attendeeName} (${booking.attendeeEmail})`);
+  res.json({ ok: true });
+});
+
+// Poll for unprocessed Cal.com bookings (frontend polling)
+app.get('/api/cal/bookings', (_req, res) => {
+  const unprocessed = calBookings.filter(b => !b.processed);
+  res.json(unprocessed);
+});
+
+// Ack a Cal.com booking as processed
+app.post('/api/cal/bookings/:id/ack', (req, res) => {
+  const b = calBookings.find(x => x.id === req.params.id);
+  if (b) { b.processed = true; persistCalBookings(); }
+  res.json({ ok: true });
+});
+
+// Check Cal.com connection status
+app.get('/api/cal/status', async (_req, res) => {
+  const key = process.env.CAL_COM_API_KEY;
+  if (!key) return res.json({ connected: false, reason: 'CAL_COM_API_KEY not set' });
+  try {
+    const r = await fetch(`${CAL_API}/me?apiKey=${key}`);
+    const d = await r.json();
+    if (!r.ok) return res.json({ connected: false, reason: d.message ?? 'Invalid key' });
+    res.json({ connected: true, username: d.user?.username, name: d.user?.name, timeZone: d.user?.timeZone });
+  } catch (err) { res.json({ connected: false, reason: err.message }); }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// ── Reply Queue (Instantly webhook → AI classification) ────────
+// ═══════════════════════════════════════════════════════════════
+
+const REPLIES_PATH = join(__dirname, 'replies-queue.json');
+let replyQueue = [];
+try { if (existsSync(REPLIES_PATH)) replyQueue = JSON.parse(readFileSync(REPLIES_PATH, 'utf8')); } catch { /* fresh start */ }
+function persistReplies() { try { writeFileSync(REPLIES_PATH, JSON.stringify(replyQueue), 'utf8'); } catch { /* non-critical */ } }
+
+async function classifyReply(replyText) {
+  // Try each configured provider in priority order
+  const providerOrder = ['minimax', 'openai', 'groq', 'anthropic'];
+  let provider, key, prov;
+  for (const p of providerOrder) {
+    const k = process.env[`${p.toUpperCase()}_API_KEY`];
+    if (k && PROVIDERS[p]) { provider = p; key = k; prov = PROVIDERS[p]; break; }
+  }
+  if (!prov || !key) return { intent: 'NEUTRAL', confidence: 0, summary: 'No AI provider configured for classification' };
+
+  const prompt = `Classify this cold email reply into ONE of: POSITIVE, NEGATIVE, NEUTRAL, UNSUBSCRIBE, REFERRAL, MAYBE_LATER.
+
+Reply: "${replyText}"
+
+Respond with ONLY a JSON object: { "intent": "POSITIVE", "confidence": 0.95, "summary": "Interested, asked for pricing" }`;
+
+  try {
+    const r = await fetch(prov.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({
+        model: prov.defaultModel,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 128,
+      }),
+    });
+    const d = await r.json();
+    if (!r.ok) return { intent: 'NEUTRAL', confidence: 0, summary: `AI error: ${d.error?.message ?? r.status}` };
+    const text = d.choices?.[0]?.message?.content ?? '';
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return { intent: 'NEUTRAL', confidence: 0, summary: 'AI returned unparseable response' };
+    return JSON.parse(match[0]);
+  } catch (err) {
+    return { intent: 'NEUTRAL', confidence: 0, summary: `Classification error: ${err.message}` };
+  }
+}
+
+// Get pending classified replies
+app.get('/api/instantly/replies', (req, res) => {
+  const pending = replyQueue.filter(r => !r.processed);
+  res.json(pending);
+});
+
+// Acknowledge a reply as processed
+app.post('/api/instantly/replies/:id/ack', (req, res) => {
+  const reply = replyQueue.find(r => r.id === req.params.id);
+  if (!reply) return res.status(404).json({ error: 'Reply not found' });
+  reply.processed = true;
+  persistReplies();
+  res.json({ ok: true });
+});
+
+// ═══════════════════════════════════════════════════════════════
 // ── AI Sequence + Reply Classification ─────────────────────────
 // ═══════════════════════════════════════════════════════════════
 
@@ -1035,44 +1544,219 @@ Keep bodies under 120 words. Use {firstName}, {company}, {industry} as variables
   }
 });
 
-// Classify a reply intent
+// Classify a reply intent (uses shared classifyReply function)
 app.post('/api/ai/classify-reply', rateLimit(60000, 20), async (req, res) => {
-  const { replyText, provider = 'minimax' } = req.body;
+  const { replyText } = req.body;
   if (!replyText) return res.status(400).json({ error: 'replyText required' });
-
-  const prov = PROVIDERS[provider];
-  const key  = process.env[`${provider.toUpperCase()}_API_KEY`];
-  if (!prov || !key) return res.status(400).json({ error: `Provider ${provider} not configured` });
-
-  const prompt = `Classify this cold email reply into ONE of: POSITIVE, NEGATIVE, NEUTRAL, UNSUBSCRIBE, REFERRAL, MAYBE_LATER.
-
-Reply: "${replyText}"
-
-Respond with ONLY a JSON object: { "intent": "POSITIVE", "confidence": 0.95, "summary": "Interested, asked for pricing" }`;
-
   try {
-    const r = await fetch(prov.url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-      body: JSON.stringify({
-        model: prov.defaultModel,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 128,
-      }),
-    });
-    const d = await r.json();
-    if (!r.ok) return res.status(r.status).json({ error: d.error?.message ?? 'AI error' });
-    const text = d.choices?.[0]?.message?.content ?? '';
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return res.status(500).json({ error: 'AI did not return valid JSON', raw: text.slice(0, 300) });
-    let parsed;
-    try { parsed = JSON.parse(match[0]); }
-    catch { return res.status(500).json({ error: 'AI returned invalid JSON', raw: match[0].slice(0, 300) }); }
-    res.json(parsed);
+    const result = await classifyReply(replyText);
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ══════════════════════════════════════════════════════════════
+// ── Entity CRUD (SQLite-backed) ──────────────────────────────
+// ══════════════════════════════════════════════════════════════
+
+// Helper: generic CRUD route factory
+function entityRoutes(path, table) {
+  app.get(`/api/${path}`, (req, res) => {
+    try { res.json(db.getAll(table)); }
+    catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get(`/api/${path}/:id`, (req, res) => {
+    try {
+      const row = db.getById(table, req.params.id);
+      if (!row) return res.status(404).json({ error: 'Not found' });
+      res.json(row);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post(`/api/${path}`, (req, res) => {
+    try {
+      if (!req.body.id) req.body.id = `${table.slice(0, 3)}-${randomUUID().slice(0, 8)}`;
+      const row = db.insert(table, req.body);
+      res.status(201).json(row);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.put(`/api/${path}/:id`, (req, res) => {
+    try {
+      const existing = db.getById(table, req.params.id);
+      if (!existing) return res.status(404).json({ error: 'Not found' });
+      const row = db.update(table, req.params.id, req.body);
+      res.json(row);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.delete(`/api/${path}/:id`, (req, res) => {
+    try {
+      res.json(db.remove(table, req.params.id));
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+}
+
+// Register all entity routes
+entityRoutes('agents', 'agents');
+entityRoutes('clients', 'clients');
+entityRoutes('leads', 'leads');
+entityRoutes('campaigns', 'campaigns');
+entityRoutes('workflows', 'workflows');
+entityRoutes('crm/contacts', 'crm_contacts');
+entityRoutes('crm/companies', 'crm_companies');
+entityRoutes('crm/deals', 'crm_deals');
+entityRoutes('email-templates', 'email_templates');
+entityRoutes('schedule', 'schedule');
+entityRoutes('pages', 'pages');
+entityRoutes('notifications', 'notifications');
+
+// ── Tasks (special: column-based ordering) ───────────────────
+
+app.get('/api/tasks', (req, res) => {
+  try { res.json(db.getTasksByColumn()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/tasks', (req, res) => {
+  try {
+    if (!req.body.id) req.body.id = `t-${randomUUID().slice(0, 8)}`;
+    if (!req.body.col) req.body.col = 'backlog';
+    // Set position to end of column
+    const cols = db.getTasksByColumn();
+    const colItems = cols[req.body.col]?.items || [];
+    req.body.position = colItems.length;
+    const row = db.insert('tasks', req.body);
+    res.status(201).json(row);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/tasks/:id', (req, res) => {
+  try {
+    const existing = db.getById('tasks', req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    const row = db.update('tasks', req.params.id, req.body);
+    res.json(row);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/tasks/:id', (req, res) => {
+  try { res.json(db.remove('tasks', req.params.id)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/tasks/:id/move', (req, res) => {
+  try {
+    const { col, position = 0 } = req.body;
+    if (!col) return res.status(400).json({ error: 'col required' });
+    const cols = db.moveTask(req.params.id, col, position);
+    res.json(cols);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/tasks/reorder', (req, res) => {
+  try {
+    const { col, orderedIds } = req.body;
+    if (!col || !Array.isArray(orderedIds)) return res.status(400).json({ error: 'col and orderedIds required' });
+    const cols = db.reorderTasks(col, orderedIds);
+    res.json(cols);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Settings & Profile ───────────────────────────────────────
+
+app.get('/api/settings', (req, res) => {
+  try {
+    const settings = db.getSetting('settings');
+    const profile = db.getSetting('profile');
+    const pipelineConfig = db.getSetting('pipelineConfig');
+    const setupDone = db.getSetting('setupDone');
+    const lastBriefing = db.getSetting('lastBriefing');
+    const weeklyReport = db.getSetting('weeklyReport');
+    const scrapeScheds = db.getSetting('scrapeSchedules');
+    res.json({ settings, profile, pipelineConfig, setupDone, lastBriefing, weeklyReport, scrapeSchedules: scrapeScheds });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/settings/:key', (req, res) => {
+  try {
+    const result = db.setSetting(req.params.key, req.body.value);
+    res.json({ ok: true, key: req.params.key, value: result });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── AI Messages ──────────────────────────────────────────────
+
+app.get('/api/ai-messages', (req, res) => {
+  try { res.json(db.getAiMessages()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/ai-messages', (req, res) => {
+  try {
+    const { role, text } = req.body;
+    if (!role || !text) return res.status(400).json({ error: 'role and text required' });
+    const msg = db.addAiMessage(role, text);
+    res.status(201).json(msg);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/ai-messages', (req, res) => {
+  try {
+    db.clearAiMessages();
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Dashboard Stats ──────────────────────────────────────────
+
+app.get('/api/dashboard/stats', (req, res) => {
+  try { res.json(db.getDashboardStats()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Backup & Export ──────────────────────────────────────────
+
+app.post('/api/data/backup', (req, res) => {
+  try {
+    const dest = db.backup();
+    res.json({ ok: true, path: dest });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/data/export', (req, res) => {
+  try {
+    const data = db.exportAll();
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/data/import', (req, res) => {
+  try {
+    // Backup before importing
+    db.backup();
+    const result = db.importAll(req.body);
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Webhook Events (persistent) ──────────────────────────────
+
+app.get('/api/webhooks/:source', (req, res) => {
+  try { res.json(db.getUnprocessedWebhooks(req.params.source)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/webhooks/:id/ack', (req, res) => {
+  try {
+    db.markWebhookProcessed(req.params.id);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ══════════════════════════════════════════════════════════════
 
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(join(__dirname, 'dist')));
@@ -1080,8 +1764,26 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 app.listen(PORT, () => {
+  // Seed database on first run
+  if (db.needsSeed()) {
+    // Import seed data dynamically (ESM)
+    import('./seed-data.js').then(seedModule => {
+      db.seed(seedModule.default);
+      console.log('  ✓  Database seeded with default data');
+    }).catch(err => {
+      console.warn('  ⚠  Could not seed database:', err.message);
+    });
+  } else {
+    console.log('  ✓  Database loaded (agency.db)');
+  }
+
   console.log(`\n  Agency OS API  →  http://localhost:${PORT}`);
   const keys = Object.keys(PROVIDERS).filter(p => process.env[`${p.toUpperCase()}_API_KEY`]);
   if (keys.length) console.log(`  ✓  Keys found in .env: ${keys.join(', ')}`);
   else console.warn('  ⚠  No API keys in .env — use Settings UI to add keys\n');
+  // Start the scrape scheduler
+  if (scrapeSchedules.length) {
+    console.log(`  ⏰ Scheduler active: ${scrapeSchedules.filter(s => s.enabled).length} schedule(s)`);
+  }
+  startScheduler();
 });

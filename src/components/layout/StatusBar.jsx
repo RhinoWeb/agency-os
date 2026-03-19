@@ -23,12 +23,11 @@ export default function StatusBar({ actAgents, serverOnline, timer, fmtTimer, cl
       </div>
       <div className="status-bar__right">
         <button
-          className="status-bar__hint"
+          className="status-bar__kbd-btn"
           onClick={() => setShowCmd(p => !p)}
-          style={{ cursor: 'pointer', border: '1px solid var(--border)' }}
           aria-label="Open command palette"
         >
-          Ctrl+K
+          <kbd>Ctrl K</kbd>
         </button>
         <span className="status-bar__hint">? Help</span>
         {clock && <span className="status-bar__clock">{clock}</span>}

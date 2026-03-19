@@ -47,8 +47,11 @@ function DealCard({ deal, stage, contacts, companies, onSelect, onDragStart }) {
         marginBottom: 8,
       }}
     >
-      <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, lineHeight: 1.4 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 6 }}>
         {deal.title}
+        {deal.tags?.includes('auto-created') && (
+          <span style={{ fontSize: 8, fontFamily: MONO, fontWeight: 700, color: C.accent, background: `${C.accent}15`, border: `1px solid ${C.accent}30`, borderRadius: 3, padding: '1px 5px', letterSpacing: 0.8 }}>AUTO</span>
+        )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 16, fontWeight: 800, fontFamily: MONO, color: stage.color }}>
@@ -76,7 +79,7 @@ function DealCard({ deal, stage, contacts, companies, onSelect, onDragStart }) {
 }
 
 // ── Deal Detail Panel ────────────────────────────────────────────
-function DealDetail({ deal, contacts, companies, stages, onUpdate, onClose }) {
+function DealDetail({ deal, contacts, companies, stages, onUpdate, onClose, openConfirm }) {
   const contact = contacts.find(c => c.id === deal.contactId);
   const company = companies.find(c => c.id === deal.companyId);
   const stage   = stages.find(s => s.id === deal.stage) ?? stages[0];
@@ -88,14 +91,10 @@ function DealDetail({ deal, contacts, companies, stages, onUpdate, onClose }) {
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(6,9,15,0.85)', backdropFilter: 'blur(6px)', zIndex: 9000, display: 'flex', justifyContent: 'flex-end' }}
+      className="panel-overlay"
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div style={{
-        width: 520, maxWidth: '100%', height: '100vh', overflowY: 'auto',
-        background: 'var(--surface)', borderLeft: '1px solid var(--border2)',
-        padding: 32, animation: 'slideInRight 0.2s ease',
-      }}>
+      <div className="panel">
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
           <div style={{ flex: 1 }}>
@@ -106,7 +105,7 @@ function DealDetail({ deal, contacts, companies, stages, onUpdate, onClose }) {
               {deal.title}
             </h2>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 18 }}>✕</button>
+          <button onClick={onClose} className="close-btn">✕</button>
         </div>
 
         {/* Value + dates */}
@@ -131,7 +130,7 @@ function DealDetail({ deal, contacts, companies, stages, onUpdate, onClose }) {
         </div>
 
         {/* Stage selector */}
-        <div style={{ marginBottom: 20 }}>
+        <div className="section-gap">
           <div className="section-label mb-8">Stage</div>
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {stages.map(s => (
@@ -153,7 +152,7 @@ function DealDetail({ deal, contacts, companies, stages, onUpdate, onClose }) {
 
         {/* Lost reason */}
         {deal.stage === 'closed_lost' && (
-          <div style={{ marginBottom: 20 }}>
+          <div className="section-gap">
             <div className="section-label mb-8">Lost Reason</div>
             <select
               className="input"
@@ -195,7 +194,7 @@ function DealDetail({ deal, contacts, companies, stages, onUpdate, onClose }) {
         </div>
 
         {/* Value edit */}
-        <div style={{ marginBottom: 20 }}>
+        <div className="section-gap">
           <div className="section-label mb-8">Deal Value ($/mo)</div>
           <input
             className="input"
@@ -207,7 +206,7 @@ function DealDetail({ deal, contacts, companies, stages, onUpdate, onClose }) {
         </div>
 
         {/* Expected close */}
-        <div style={{ marginBottom: 20 }}>
+        <div className="section-gap">
           <div className="section-label mb-8">Expected Close Date</div>
           <input
             className="input"
@@ -218,7 +217,7 @@ function DealDetail({ deal, contacts, companies, stages, onUpdate, onClose }) {
         </div>
 
         {/* Notes */}
-        <div style={{ marginBottom: 20 }}>
+        <div className="section-gap">
           <div className="section-label mb-8">Notes</div>
           <textarea
             className="input"
@@ -261,12 +260,13 @@ function DealDetail({ deal, contacts, companies, stages, onUpdate, onClose }) {
           <button
             className="btn btn--ghost btn--sm"
             style={{ marginLeft: 'auto', color: C.red, borderColor: `${C.red}30` }}
-            onClick={() => {
-              if (window.confirm('Delete this deal?')) {
-                onUpdate(deal.id, '__DELETE__');
-                onClose();
-              }
-            }}
+            onClick={() => openConfirm({
+              title: 'Delete this deal?',
+              message: 'This deal and all associated data will be permanently removed.',
+              confirmLabel: 'Delete Deal',
+              danger: true,
+              onConfirm: () => { onUpdate(deal.id, '__DELETE__'); onClose(); },
+            })}
           >
             Delete Deal
           </button>
@@ -314,41 +314,41 @@ function NewDealModal({ contacts, companies, stages, onAdd, onClose }) {
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(6,9,15,0.85)', backdropFilter: 'blur(6px)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      className="modal-overlay"
       onClick={e => e.target === e.currentTarget && onClose()}
     >
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 16, padding: 32, width: '100%', maxWidth: 480, margin: '0 16px' }}>
+      <div className="modal">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--sans)' }}>New Deal</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 18 }}>✕</button>
+          <button onClick={onClose} className="close-btn">✕</button>
         </div>
 
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <label className="settings-label" style={{ display: 'block', marginBottom: 4 }}>Deal Title *</label>
+            <label className="settings-label form-label">Deal Title *</label>
             <input className="input" value={form.title} onChange={e => set('title', e.target.value)} placeholder="Acme Corp — SEO Retainer" autoFocus required />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label className="settings-label" style={{ display: 'block', marginBottom: 4 }}>Value ($/mo)</label>
+              <label className="settings-label form-label">Value ($/mo)</label>
               <input className="input" type="number" min={0} value={form.value} onChange={e => set('value', e.target.value)} />
             </div>
             <div>
-              <label className="settings-label" style={{ display: 'block', marginBottom: 4 }}>Stage</label>
+              <label className="settings-label form-label">Stage</label>
               <select className="input" value={form.stage} onChange={e => set('stage', e.target.value)}>
                 {stages.filter(s => s.id !== 'closed_won' && s.id !== 'closed_lost').map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="settings-label" style={{ display: 'block', marginBottom: 4 }}>Contact</label>
+              <label className="settings-label form-label">Contact</label>
               <select className="input" value={form.contactId} onChange={e => setContact(e.target.value)}>
                 <option value="">Select…</option>
                 {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="settings-label" style={{ display: 'block', marginBottom: 4 }}>Company</label>
+              <label className="settings-label form-label">Company</label>
               <select className="input" value={form.companyId} onChange={e => set('companyId', e.target.value)}>
                 <option value="">Select…</option>
                 {companies.map(c => <option key={c.id} value={c.id}>{c.logo} {c.name}</option>)}
@@ -357,17 +357,17 @@ function NewDealModal({ contacts, companies, stages, onAdd, onClose }) {
           </div>
 
           <div>
-            <label className="settings-label" style={{ display: 'block', marginBottom: 4 }}>Expected Close</label>
+            <label className="settings-label form-label">Expected Close</label>
             <input className="input" type="date" value={form.expectedClose} onChange={e => set('expectedClose', e.target.value)} />
           </div>
 
           <div>
-            <label className="settings-label" style={{ display: 'block', marginBottom: 4 }}>Tags (comma-separated)</label>
+            <label className="settings-label form-label">Tags (comma-separated)</label>
             <input className="input" value={form.tags} onChange={e => set('tags', e.target.value)} placeholder="new-business, upsell, referral" />
           </div>
 
           <div>
-            <label className="settings-label" style={{ display: 'block', marginBottom: 4 }}>Notes</label>
+            <label className="settings-label form-label">Notes</label>
             <textarea className="input" rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} style={{ resize: 'vertical' }} />
           </div>
 
@@ -382,7 +382,7 @@ function NewDealModal({ contacts, companies, stages, onAdd, onClose }) {
 }
 
 // ── Main Pipeline View ───────────────────────────────────────────
-export default function DealPipeline({ deals, setDeals, contacts, companies }) {
+export default function DealPipeline({ deals, setDeals, contacts, companies, openConfirm }) {
   const [selectedDeal, setSelectedDeal] = useState(null);
   const [showNewDeal, setShowNewDeal]   = useState(false);
   const [dragging, setDragging]         = useState(null);
@@ -437,7 +437,7 @@ export default function DealPipeline({ deals, setDeals, contacts, companies }) {
 
   return (
     <section className="view" aria-labelledby="deals-title">
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+      <header className="view-header">
         <div>
           <h1 id="deals-title" className="view-title">Deal Pipeline</h1>
           <p className="view-subtitle">Track opportunities from qualification to close</p>
@@ -466,7 +466,7 @@ export default function DealPipeline({ deals, setDeals, contacts, companies }) {
         ].map((k, i) => (
           <div key={i} className="card card--sm">
             <div className="kpi-label">{k.l}</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: k.c, fontFamily: MONO }}>{k.v}</div>
+            <div className="kpi-value-lg" style={{ color: k.c }}>{k.v}</div>
           </div>
         ))}
       </div>
@@ -543,11 +543,11 @@ export default function DealPipeline({ deals, setDeals, contacts, companies }) {
       {/* ── Table View ───────────────────────────────────────── */}
       {viewMode === 'table' && (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, fontFamily: MONO }}>
+          <table className="table">
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
+              <tr>
                 {['Deal', 'Stage', 'Value', 'Contact', 'Company', 'Idle', 'Expected Close'].map(h => (
-                  <th key={h} style={{ padding: '10px 12px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.2, color: 'var(--muted)' }}>{h}</th>
+                  <th key={h}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -566,18 +566,18 @@ export default function DealPipeline({ deals, setDeals, contacts, companies }) {
                     onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
                     onMouseLeave={e => e.currentTarget.style.background = ''}
                   >
-                    <td style={{ padding: '10px 12px', fontWeight: 600, color: 'var(--text)' }}>{deal.title}</td>
-                    <td style={{ padding: '10px 12px' }}>
+                    <td>{deal.title}</td>
+                    <td>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ width: 6, height: 6, borderRadius: '50%', background: stage.color, flexShrink: 0 }} />
                         <span style={{ color: stage.color, fontSize: 10 }}>{stage.label}</span>
                       </span>
                     </td>
-                    <td style={{ padding: '10px 12px', color: C.accent, fontWeight: 700 }}>{fmtCurrency(deal.value)}</td>
-                    <td style={{ padding: '10px 12px', color: 'var(--dim)' }}>{contact?.name ?? '—'}</td>
-                    <td style={{ padding: '10px 12px', color: 'var(--dim)' }}>{company?.name ?? '—'}</td>
-                    <td style={{ padding: '10px 12px', color: isRotting ? C.red : 'var(--muted)' }}>{idle}d</td>
-                    <td style={{ padding: '10px 12px', color: 'var(--muted)' }}>{fmtDate(deal.expectedClose)}</td>
+                    <td style={{ color: C.accent }}>{fmtCurrency(deal.value)}</td>
+                    <td>{contact?.name ?? '—'}</td>
+                    <td>{company?.name ?? '—'}</td>
+                    <td style={{ color: isRotting ? C.red : 'var(--muted)' }}>{idle}d</td>
+                    <td>{fmtDate(deal.expectedClose)}</td>
                   </tr>
                 );
               })}
@@ -698,6 +698,7 @@ export default function DealPipeline({ deals, setDeals, contacts, companies }) {
           stages={DEAL_STAGES}
           onUpdate={updateDeal}
           onClose={() => setSelectedDeal(null)}
+          openConfirm={openConfirm}
         />
       )}
 

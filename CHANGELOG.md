@@ -5,6 +5,57 @@ Format: [Semantic Versioning](https://semver.org/) — Added / Changed / Fixed /
 
 ---
 
+## [2.0.0] — 2026-03-19 💾 SQLite Persistence — "Actually Usable"
+
+### Added
+- **SQLite database** — All entity data now persists in `agency.db` via `better-sqlite3` with WAL mode. No more localStorage-only storage. Data survives browser clears, restarts, and updates.
+- **`db.js` database layer** — Full schema with 13 tables (agents, tasks, clients, leads, campaigns, workflows, CRM contacts, CRM companies, CRM deals, email templates, schedule, pages, notifications), JSON field serialization, and migration support.
+- **40+ REST API endpoints** — Complete CRUD for every entity (`GET/POST/PUT/DELETE /api/{entity}`), plus special endpoints for task column moves, dashboard stats aggregation, and settings key-value store.
+- **`seed-data.js`** — Server-side seed data for first-run database initialization. Database auto-seeds on first startup with all demo data.
+- **`useServerState` hook** — Drop-in replacement for `usePersistedState` that syncs React state to the server API with debounced writes. Supports lists, objects (task columns), and key-value settings.
+- **`useEntity` hook** — Standalone server-backed entity hook with optimistic updates and error rollback for future use.
+- **Dashboard stats endpoint** — `GET /api/dashboard/stats` returns aggregated MRR, active agents, tasks due today, hot leads, and at-risk clients in a single query.
+- **Backup & export system** — `POST /api/data/backup` copies `agency.db` to timestamped backup file. `GET /api/data/export` returns full JSON dump. `POST /api/data/import` restores from JSON (with auto-backup before import).
+- **Webhook persistence** — `webhook_events` table replaces in-memory arrays for Instantly replies and Cal.com bookings. Server restarts no longer lose pending webhook data.
+- **AI messages table** — Chat history persists in SQLite instead of localStorage.
+- **Settings key-value store** — All settings, profile, pipeline config, briefings, and reports stored server-side.
+
+### Changed
+- **App.jsx** — Replaced all 25 `usePersistedState` calls with `useServerState` for server-backed entities. Only UI preferences (sidebar collapsed) remain in localStorage.
+- **server.js** — Added `db.js` import, entity CRUD routes, settings endpoints, backup/export/import routes, and database seeding on startup.
+- **Data architecture** — Server is now the source of truth. Frontend uses optimistic updates with debounced sync-back. All entity mutations persist to SQLite within 500ms.
+
+### Fixed
+- **Node v24 syntax error** — Fixed `??`/`||` operator precedence issue in Apify lead normalization (line 1026).
+
+### Technical
+- `better-sqlite3` with WAL mode for concurrent read performance
+- `INSERT OR REPLACE` for upsert semantics across all entity writes
+- JSON fields (arrays, nested objects) automatically serialized/deserialized
+- Generic `entityRoutes()` factory generates 5 CRUD endpoints per entity
+- Task ordering maintained via `col` + `position` columns with shift-on-insert
+- Debounced list sync diffs against server state (create/update/delete only changed items)
+- Database auto-closes on process exit
+
+---
+
+## [1.0.5] — 2026-03-12 ◇ Obsidian UI Redesign
+
+### Added
+- **6 color themes** — Obsidian (default), Midnight, Forest, Sunset, Arctic, Rose with full CSS variable switching
+- **Command palette** — Ctrl+K with 25+ actions, fuzzy search, dynamic recent tabs
+- **Empty states** — Reusable EmptyState component across 8 views with icons and CTAs
+- **Agent Fleet CRUD** — Create, edit, delete agents with task assignment
+- **Branded confirm dialogs** — Custom ConfirmModal replaces window.confirm()
+- **Notification utility** — `createNotif()` helper replaces repeated notification patterns
+
+### Changed
+- Performance: Memoized `shared` object, fixed stale closures in 4 polling effects
+- Error handling: Replaced 11 silent `.catch(() => {})` with user-facing notifications
+- Settings: Replaced hardcoded colors with theme tokens
+
+---
+
 ## [1.0.2] — 2026-03-06 🔑 Tool Vault
 
 ### Added

@@ -147,7 +147,7 @@ export default function WebBrowser({ settings }) {
   return (
     <section className="view view--browser" aria-labelledby="browser-title">
       {/* Header */}
-      <header style={{ marginBottom: 14 }}>
+      <header className="view-header" style={{ marginBottom: 14 }}>
         <div className="flex-between">
           <div>
             <h1 id="browser-title" className="view-title">🌐 Web Browser</h1>
@@ -267,7 +267,7 @@ export default function WebBrowser({ settings }) {
                 <strong style={{ color: 'var(--dim)' }}>Manual:</strong> enter any URL and hit Go<br/>
                 <strong style={{ color: 'var(--dim)' }}>AI Browse:</strong> describe a research task and the AI will find, fetch, and summarize the right page
               </div>
-              <div style={{ marginTop: 20, display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+              <div className="flex-center" style={{ marginTop: 20, gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
                 {[
                   'Find Ahrefs pricing',
                   'Semrush vs Ahrefs comparison',
@@ -315,7 +315,7 @@ export default function WebBrowser({ settings }) {
               {page.links?.length > 0 && (
                 <div className="browser-reader__links">
                   <div className="section-label mb-8">Page Links</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  <div className="flex-center" style={{ flexWrap: 'wrap', gap: 6 }}>
                     {page.links.slice(0, 18).map((l, i) => (
                       <button
                         key={i}

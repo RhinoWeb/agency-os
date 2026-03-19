@@ -85,27 +85,27 @@ function TemplateEditor({ template, onSave, onClose, onDelete, profile }) {
   const tagStr = typeof form.tags === 'string' ? form.tags : (form.tags ?? []).join(', ');
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(6,9,15,0.85)', backdropFilter: 'blur(6px)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+    <div className="modal-overlay"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 16, padding: 32, width: '100%', maxWidth: 800, maxHeight: '90vh', overflowY: 'auto', margin: '0 16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+      <div className="modal" style={{ maxWidth: 800 }}>
+        <div className="flex-between" style={{ marginBottom: 20 }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--sans)' }}>{isNew ? 'New Template' : 'Edit Template'}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 18 }}>✕</button>
+          <button onClick={onClose} className="close-btn">✕</button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <div className="form-grid" style={{ gap: 20 }}>
           {/* Left: editor */}
-          <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <form onSubmit={submit} className="form-stack" style={{ gap: 12 }}>
             <div>
-              <label className="settings-label" style={{ display: 'block', marginBottom: 4 }}>Template Name *</label>
+              <label className="settings-label form-label">Template Name *</label>
               <input className="input" value={form.name} onChange={e => set('name', e.target.value)} placeholder="Follow-Up After Call" autoFocus required />
             </div>
             <div>
-              <label className="settings-label" style={{ display: 'block', marginBottom: 4 }}>Subject Line</label>
+              <label className="settings-label form-label">Subject Line</label>
               <input className="input" value={form.subject} onChange={e => set('subject', e.target.value)} placeholder="Great chatting, {{firstName}}!" />
             </div>
             <div>
-              <label className="settings-label" style={{ display: 'block', marginBottom: 4 }}>Body</label>
+              <label className="settings-label form-label">Body</label>
               <textarea
                 id="tpl-body"
                 className="input"
@@ -139,11 +139,11 @@ function TemplateEditor({ template, onSave, onClose, onDelete, profile }) {
             </div>
 
             <div>
-              <label className="settings-label" style={{ display: 'block', marginBottom: 4 }}>Tags (comma-separated)</label>
+              <label className="settings-label form-label">Tags (comma-separated)</label>
               <input className="input" value={tagStr} onChange={e => set('tags', e.target.value)} placeholder="outreach, follow-up" />
             </div>
 
-            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <div className="form-actions">
               {!isNew && onDelete && (
                 <button type="button" className="btn btn--ghost btn--sm" style={{ color: C.red, borderColor: `${C.red}30` }} onClick={() => { onDelete(form.id); onClose(); }}>
                   Delete
@@ -194,7 +194,7 @@ export default function EmailTemplates({ emailTemplates, setEmailTemplates, prof
 
   return (
     <section className="view" aria-labelledby="templates-title">
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+      <header className="view-header">
         <div>
           <h1 id="templates-title" className="view-title">Email Templates</h1>
           <p className="view-subtitle">Reusable templates with merge fields for outreach and follow-ups</p>
@@ -212,7 +212,7 @@ export default function EmailTemplates({ emailTemplates, setEmailTemplates, prof
         ].map((k, i) => (
           <div key={i} className="card card--sm">
             <div className="kpi-label">{k.l}</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: k.c, fontFamily: MONO }}>{k.v}</div>
+            <div className="kpi-value-lg" style={{ color: k.c }}>{k.v}</div>
           </div>
         ))}
       </div>
@@ -229,7 +229,7 @@ export default function EmailTemplates({ emailTemplates, setEmailTemplates, prof
       </div>
 
       {/* Template grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
+      <div className="section-gap" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
         {filtered.length === 0 && (
           <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '48px 0', color: 'var(--muted)', fontSize: 13 }}>
             No templates found.{' '}

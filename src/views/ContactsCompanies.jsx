@@ -42,54 +42,54 @@ function ContactModal({ contact, companies, onSave, onClose }) {
   const tagStr = typeof form.tags === 'string' ? form.tags : (form.tags ?? []).join(', ');
 
   return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(6,9,15,0.85)', backdropFilter:'blur(6px)', zIndex:9000, display:'flex', alignItems:'center', justifyContent:'center' }}
+    <div className="modal-overlay"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background:'var(--surface)', border:'1px solid var(--border2)', borderRadius:16, padding:32, width:'100%', maxWidth:480, margin:'0 16px' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:24 }}>
+      <div className="modal">
+        <div className="flex-between" style={{ marginBottom:24 }}>
           <h2 style={{ fontSize:18, fontWeight:700, fontFamily:'var(--sans)' }}>{isEdit ? 'Edit Contact' : 'New Contact'}</h2>
-          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--muted)', fontSize:18 }}>✕</button>
+          <button onClick={onClose} className="close-btn">✕</button>
         </div>
-        <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:12 }}>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+        <form onSubmit={submit} className="form-stack">
+          <div className="form-grid">
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Name *</label>
+              <label className="settings-label form-label">Name *</label>
               <input className="input" value={form.name} onChange={e => set('name', e.target.value)} autoFocus required />
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Title</label>
+              <label className="settings-label form-label">Title</label>
               <input className="input" value={form.title} onChange={e => set('title', e.target.value)} placeholder="VP of Marketing" />
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Email</label>
+              <label className="settings-label form-label">Email</label>
               <input className="input" type="email" value={form.email} onChange={e => set('email', e.target.value)} />
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Phone</label>
+              <label className="settings-label form-label">Phone</label>
               <input className="input" value={form.phone} onChange={e => set('phone', e.target.value)} />
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Company</label>
+              <label className="settings-label form-label">Company</label>
               <select className="input" value={form.companyId ?? ''} onChange={e => set('companyId', e.target.value)}>
                 <option value="">None</option>
                 {companies.map(c => <option key={c.id} value={c.id}>{c.logo} {c.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Source</label>
+              <label className="settings-label form-label">Source</label>
               <select className="input" value={form.source} onChange={e => set('source', e.target.value)}>
                 {SOURCES.filter(s => s !== 'all').map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
           </div>
           <div>
-            <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Tags (comma-separated)</label>
+            <label className="settings-label form-label">Tags (comma-separated)</label>
             <input className="input" value={tagStr} onChange={e => set('tags', e.target.value)} placeholder="decision-maker, champion" />
           </div>
           <div>
-            <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Notes</label>
+            <label className="settings-label form-label">Notes</label>
             <textarea className="input" rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} style={{ resize:'vertical' }} />
           </div>
-          <div style={{ display:'flex', gap:8, marginTop:4 }}>
+          <div className="form-actions">
             <button type="button" className="btn btn--ghost" onClick={onClose} style={{ flex:1 }}>Cancel</button>
             <button type="submit" className="btn btn--primary" style={{ flex:2 }}>{isEdit ? 'Save' : 'Create Contact'}</button>
           </div>
@@ -130,37 +130,37 @@ function CompanyModal({ company, onSave, onClose }) {
   }
 
   return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(6,9,15,0.85)', backdropFilter:'blur(6px)', zIndex:9000, display:'flex', alignItems:'center', justifyContent:'center' }}
+    <div className="modal-overlay"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background:'var(--surface)', border:'1px solid var(--border2)', borderRadius:16, padding:32, width:'100%', maxWidth:480, margin:'0 16px' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:24 }}>
+      <div className="modal">
+        <div className="flex-between" style={{ marginBottom:24 }}>
           <h2 style={{ fontSize:18, fontWeight:700, fontFamily:'var(--sans)' }}>{isEdit ? 'Edit Company' : 'New Company'}</h2>
-          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--muted)', fontSize:18 }}>✕</button>
+          <button onClick={onClose} className="close-btn">✕</button>
         </div>
-        <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:12 }}>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+        <form onSubmit={submit} className="form-stack">
+          <div className="form-grid">
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Company Name *</label>
+              <label className="settings-label form-label">Company Name *</label>
               <input className="input" value={form.name} onChange={e => set('name', e.target.value)} autoFocus required />
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Domain</label>
+              <label className="settings-label form-label">Domain</label>
               <input className="input" value={form.domain} onChange={e => set('domain', e.target.value)} placeholder="acme.io" />
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Industry</label>
+              <label className="settings-label form-label">Industry</label>
               <input className="input" value={form.industry} onChange={e => set('industry', e.target.value)} placeholder="SaaS" />
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Employees</label>
+              <label className="settings-label form-label">Employees</label>
               <input className="input" value={form.employees} onChange={e => set('employees', e.target.value)} placeholder="50-200" />
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Location</label>
+              <label className="settings-label form-label">Location</label>
               <input className="input" value={form.location} onChange={e => set('location', e.target.value)} placeholder="Austin, TX" />
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Status</label>
+              <label className="settings-label form-label">Status</label>
               <select className="input" value={form.status} onChange={e => set('status', e.target.value)}>
                 <option value="prospect">Prospect</option>
                 <option value="client">Client</option>
@@ -168,19 +168,19 @@ function CompanyModal({ company, onSave, onClose }) {
               </select>
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>MRR ($)</label>
+              <label className="settings-label form-label">MRR ($)</label>
               <input className="input" type="number" min={0} value={form.mrr} onChange={e => set('mrr', e.target.value)} />
             </div>
             <div>
-              <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Website</label>
+              <label className="settings-label form-label">Website</label>
               <input className="input" value={form.website} onChange={e => set('website', e.target.value)} placeholder="https://…" />
             </div>
           </div>
           <div>
-            <label className="settings-label" style={{ display:'block', marginBottom:4 }}>Notes</label>
+            <label className="settings-label form-label">Notes</label>
             <textarea className="input" rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} style={{ resize:'vertical' }} />
           </div>
-          <div style={{ display:'flex', gap:8, marginTop:4 }}>
+          <div className="form-actions">
             <button type="button" className="btn btn--ghost" onClick={onClose} style={{ flex:1 }}>Cancel</button>
             <button type="submit" className="btn btn--primary" style={{ flex:2 }}>{isEdit ? 'Save' : 'Create Company'}</button>
           </div>
@@ -230,7 +230,7 @@ function ContactDetail({ contact, companies, deals, onUpdateContact, onClose, on
   const company = companies.find(c => c.id === contact.companyId);
   const contactDeals = (deals ?? []).filter(d => d.contactId === contact.id);
   const lastInteraction = (contact.interactions ?? []).length > 0
-    ? contact.interactions.sort((a,b) => b.date.localeCompare(a.date))[0]
+    ? [...contact.interactions].sort((a,b) => b.date.localeCompare(a.date))[0]
     : null;
 
   function addInteraction(interaction) {
@@ -240,10 +240,10 @@ function ContactDetail({ contact, companies, deals, onUpdateContact, onClose, on
   }
 
   return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(6,9,15,0.85)', backdropFilter:'blur(6px)', zIndex:9000, display:'flex', justifyContent:'flex-end' }}
+    <div className="panel-overlay"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ width:520, maxWidth:'100%', height:'100vh', overflowY:'auto', background:'var(--surface)', borderLeft:'1px solid var(--border2)', padding:32, animation:'slideInRight 0.2s ease' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:24 }}>
+      <div className="panel">
+        <div className="flex-between" style={{ marginBottom:24 }}>
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
             <div style={{ width:48, height:48, borderRadius:'50%', background:'var(--surface2)', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 }}>
               {contact.avatar}
@@ -255,7 +255,7 @@ function ContactDetail({ contact, companies, deals, onUpdateContact, onClose, on
           </div>
           <div style={{ display:'flex', gap:6 }}>
             <button className="btn btn--sm btn--ghost" onClick={() => onEdit(contact)}>Edit</button>
-            <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--muted)', fontSize:18 }}>✕</button>
+            <button onClick={onClose} className="close-btn">✕</button>
           </div>
         </div>
 
@@ -349,7 +349,7 @@ function ContactDetail({ contact, companies, deals, onUpdateContact, onClose, on
 }
 
 // ── Main View ────────────────────────────────────────────────────
-export default function ContactsCompanies({ contacts, setContacts, companies, setCompanies, deals }) {
+export default function ContactsCompanies({ contacts, setContacts, companies, setCompanies, deals, openConfirm }) {
   const [viewTab, setViewTab]       = useState('contacts'); // contacts | companies
   const [search, setSearch]         = useState('');
   const [sourceFilter, setSource]   = useState('all');
@@ -396,9 +396,16 @@ export default function ContactsCompanies({ contacts, setContacts, companies, se
   }
 
   function deleteContact(id) {
-    if (!window.confirm('Delete this contact?')) return;
-    setContacts(p => (p ?? []).filter(c => c.id !== id));
-    if (selectedContact?.id === id) setSelCt(null);
+    openConfirm({
+      title: 'Delete this contact?',
+      message: 'This action is permanent.',
+      confirmLabel: 'Delete Contact',
+      danger: true,
+      onConfirm: () => {
+        setContacts(p => (p ?? []).filter(c => c.id !== id));
+        if (selectedContact?.id === id) setSelCt(null);
+      },
+    });
   }
 
   function saveCompany(data) {
@@ -410,8 +417,15 @@ export default function ContactsCompanies({ contacts, setContacts, companies, se
   }
 
   function deleteCompany(id) {
-    if (!window.confirm('Delete this company?')) return;
-    setCompanies(p => (p ?? []).filter(c => c.id !== id));
+    openConfirm({
+      title: 'Delete this company?',
+      message: 'This action is permanent.',
+      confirmLabel: 'Delete Company',
+      danger: true,
+      onConfirm: () => {
+        setCompanies(p => (p ?? []).filter(c => c.id !== id));
+      },
+    });
   }
 
   // KPIs
@@ -422,7 +436,7 @@ export default function ContactsCompanies({ contacts, setContacts, companies, se
 
   return (
     <section className="view" aria-labelledby="contacts-title">
-      <header style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 }}>
+      <header className="view-header">
         <div>
           <h1 id="contacts-title" className="view-title">Contacts & Companies</h1>
           <p className="view-subtitle">Manage relationships across your CRM</p>
@@ -443,7 +457,7 @@ export default function ContactsCompanies({ contacts, setContacts, companies, se
         ].map((k,i) => (
           <div key={i} className="card card--sm">
             <div className="kpi-label">{k.l}</div>
-            <div style={{ fontSize:22, fontWeight:700, color:k.c, fontFamily:MONO }}>{k.v}</div>
+            <div className="kpi-value-lg" style={{ color:k.c }}>{k.v}</div>
           </div>
         ))}
       </div>
@@ -494,11 +508,11 @@ export default function ContactsCompanies({ contacts, setContacts, companies, se
       {viewTab === 'contacts' && (
         <div className="card" style={{ padding:0, overflow:'hidden' }}>
           <div style={{ overflowX:'auto' }}>
-            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+            <table className="table">
               <thead>
-                <tr style={{ borderBottom:'1px solid var(--border)' }}>
+                <tr>
                   {['','Name','Title','Company','Email','Source','Last Activity',''].map((h,i) => (
-                    <th key={i} style={{ textAlign:'left', padding:'10px 12px', fontFamily:MONO, fontSize:9, color:'var(--muted)', textTransform:'uppercase', letterSpacing:1, whiteSpace:'nowrap' }}>{h}</th>
+                    <th key={i}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -508,7 +522,7 @@ export default function ContactsCompanies({ contacts, setContacts, companies, se
                 )}
                 {filteredContacts.map(ct => {
                   const company = safeCompanies.find(c => c.id === ct.companyId);
-                  const lastInt = (ct.interactions ?? []).length > 0 ? ct.interactions.sort((a,b) => b.date.localeCompare(a.date))[0] : null;
+                  const lastInt = (ct.interactions ?? []).length > 0 ? [...ct.interactions].sort((a,b) => b.date.localeCompare(a.date))[0] : null;
                   const isDup = ct.email && dupEmails.has(ct.email.toLowerCase());
                   return (
                     <tr
@@ -518,19 +532,19 @@ export default function ContactsCompanies({ contacts, setContacts, companies, se
                       onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
                       onMouseLeave={e => e.currentTarget.style.background = isDup ? `${C.yellow}06` : ''}
                     >
-                      <td style={{ padding:'10px 12px', fontSize:18 }}>{ct.avatar}</td>
-                      <td style={{ padding:'10px 12px', fontWeight:600 }}>
+                      <td style={{ fontSize:18 }}>{ct.avatar}</td>
+                      <td style={{ fontWeight:600 }}>
                         {ct.name}
                         {isDup && <span style={{ fontSize:8, color:C.yellow, marginLeft:6 }}>DUP</span>}
                       </td>
-                      <td style={{ padding:'10px 12px', color:'var(--muted)' }}>{ct.title || '—'}</td>
-                      <td style={{ padding:'10px 12px' }}>{company ? `${company.logo} ${company.name}` : '—'}</td>
-                      <td style={{ padding:'10px 12px', color:C.accent }}>{ct.email || '—'}</td>
-                      <td style={{ padding:'10px 12px' }}><Badge label={ct.source ?? '—'} color={C.accent4} /></td>
-                      <td style={{ padding:'10px 12px', fontSize:10, color:'var(--muted)', fontFamily:MONO }}>
+                      <td style={{ color:'var(--muted)' }}>{ct.title || '—'}</td>
+                      <td>{company ? `${company.logo} ${company.name}` : '—'}</td>
+                      <td style={{ color:C.accent }}>{ct.email || '—'}</td>
+                      <td><Badge label={ct.source ?? '—'} color={C.accent4} /></td>
+                      <td style={{ fontSize:10, color:'var(--muted)', fontFamily:MONO }}>
                         {lastInt ? `${ACTIVITY_ICONS[lastInt.type] ?? ''} ${fmtDate(lastInt.date)}` : '—'}
                       </td>
-                      <td style={{ padding:'10px 12px' }}>
+                      <td>
                         <button className="btn btn--sm btn--ghost" style={{ fontSize:10, padding:'2px 6px', color:C.red }} onClick={e => { e.stopPropagation(); deleteContact(ct.id); }}>✕</button>
                       </td>
                     </tr>

@@ -201,7 +201,7 @@ export default function Updates() {
 
   return (
     <section className="view view--mid" aria-labelledby="updates-title">
-      <header style={{ marginBottom: 24 }}>
+      <header className="view-header" style={{ marginBottom: 24 }}>
         <h1 id="updates-title" className="view-title">🔄 Updates & Changelog</h1>
         <p className="view-subtitle">Version history and release notes</p>
       </header>
@@ -211,9 +211,9 @@ export default function Updates() {
         {loading ? (
           <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'var(--mono)' }}>Checking for updates…</div>
         ) : versionInfo ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div className="flex-between" style={{ flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+              <div className="flex-center" style={{ gap: 10, marginBottom: 4 }}>
                 <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Installed</span>
                 <span style={{ fontSize: 15, fontWeight: 700, fontFamily: 'var(--mono)', color: 'var(--accent)' }}>v{versionInfo.current}</span>
               </div>
@@ -298,7 +298,7 @@ export default function Updates() {
       <div className="section-label mb-12">Full Changelog</div>
       {LOCAL_CHANGELOG.map((release) => (
         <div key={release.version} className="card" style={{ marginBottom: 16, padding: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <div className="flex-center" style={{ gap: 12, marginBottom: 14 }}>
             <span style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--mono)', color: 'var(--accent)' }}>
               v{release.version}
             </span>
@@ -311,7 +311,7 @@ export default function Updates() {
           </div>
 
           <div className="section-label mb-8" style={{ fontSize: 9 }}>New Features</div>
-          <ul style={{ margin: '0 0 16px 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <ul className="form-stack" style={{ margin: '0 0 16px 0', padding: 0, gap: 5 }}>
             {release.features.map((f, i) => (
               <li key={i} style={{ listStyle: 'none', fontSize: 11, color: 'var(--dim)', fontFamily: 'var(--sans)', lineHeight: 1.5 }}>
                 <span style={{ color: 'var(--accent)', marginRight: 8 }}>+</span>{f}
@@ -320,7 +320,7 @@ export default function Updates() {
           </ul>
 
           <div className="section-label mb-8" style={{ fontSize: 9 }}>Technical</div>
-          <ul style={{ margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <ul className="form-stack" style={{ margin: 0, padding: 0, gap: 4 }}>
             {release.technical.map((t, i) => (
               <li key={i} style={{ listStyle: 'none', fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--mono)', lineHeight: 1.5 }}>
                 <span style={{ color: 'var(--accent3)', marginRight: 8 }}>·</span>{t}

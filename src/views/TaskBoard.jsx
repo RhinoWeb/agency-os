@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Badge, ProgressBar } from '../components/ui/index.jsx';
 import { C } from '../theme.js';
+import EmptyState from '../components/ui/EmptyState.jsx';
 
 const PRIORITY_COLOR = { high: C.red, medium: C.yellow, low: C.accent };
 
-export default function TaskBoard({ columns, timer, startTimer, fmtTimer, moveTask, toggleSub, deleteTask, setModal, agents }) {
+export default function TaskBoard({ columns, timer, startTimer, fmtTimer, moveTask, toggleSub, deleteTask, setModal, agents, openConfirm }) {
   const [drag,         setDrag]         = useState(null);
   const [expandedTask, setExpandedTask] = useState(null);
   const [agentFilter,  setAgentFilter]  = useState('All');
@@ -18,9 +19,9 @@ export default function TaskBoard({ columns, timer, startTimer, fmtTimer, moveTa
           <h1 id="board-title" className="view-title">Task Board</h1>
           <p className="view-subtitle">Drag between columns · Click to expand · Track time</p>
         </div>
-        <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+        <div className="flex-center gap-8" style={{ flexWrap:'wrap' }}>
           {/* Agent filter */}
-          <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+          <div className="flex-center" style={{ gap:4, flexWrap:'wrap' }}>
             {agentNames.map(name => (
               <button
                 key={name}
@@ -47,6 +48,10 @@ export default function TaskBoard({ columns, timer, startTimer, fmtTimer, moveTa
           </button>
         </div>
       </header>
+
+      {Object.values(columns).every(c => c.items.length === 0) && (
+        <EmptyState icon="▦" title="No tasks yet" subtitle="Create your first task to start organizing work" action="+ New Task" onAction={() => setModal({ type: 'newTask' })} />
+      )}
 
       <div className="board" role="region" aria-label="Task columns">
         {Object.entries(columns).map(([ck, col]) => (
@@ -122,7 +127,7 @@ export default function TaskBoard({ columns, timer, startTimer, fmtTimer, moveTa
                     {expanded && (
                       <div className="task-expanded">
                         {sTotal > 0 && (
-                          <ul style={{ listStyle:'none', marginBottom:6 }}>
+                          <ul className="mb-6" style={{ listStyle:'none' }}>
                             {task.subtasks.map((st, si) => (
                               <li key={si}>
                                 <div
@@ -156,7 +161,7 @@ export default function TaskBoard({ columns, timer, startTimer, fmtTimer, moveTa
                           <div className="task-notes">📝 {task.notes}</div>
                         )}
 
-                        <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                        <div className="flex-center gap-6">
                           <button
                             className="btn btn--sm"
                             style={{
@@ -178,7 +183,12 @@ export default function TaskBoard({ columns, timer, startTimer, fmtTimer, moveTa
                           <button
                             className="btn btn--sm"
                             style={{ marginLeft:'auto', background:`${C.red}12`, borderColor:C.red, color:C.red }}
-                            onClick={() => { if (window.confirm(`Delete "${task.title}"?`)) { deleteTask(task.id); setExpandedTask(null); } }}
+                            onClick={() => openConfirm({
+                              title: `Delete "${task.title}"?`,
+                              confirmLabel: 'Delete Task',
+                              danger: true,
+                              onConfirm: () => { deleteTask(task.id); setExpandedTask(null); },
+                            })}
                             aria-label={`Delete task: ${task.title}`}
                           >
                             ✕ Delete

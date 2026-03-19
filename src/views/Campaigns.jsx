@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { Badge, ProgressBar } from '../components/ui/index.jsx';
 import { C } from '../theme.js';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
+import EmptyState from '../components/ui/EmptyState.jsx';
 
 const TONES = ['consultative', 'direct', 'friendly', 'authoritative', 'storytelling'];
 const STATUS_COLORS = { active:'#4285F4', draft:C.muted, paused:C.yellow, completed:C.green };
@@ -79,7 +80,9 @@ function CampaignModal({ leads, agents, onSave, onClose }) {
         });
         camp.status = 'active';
       }
-    } catch { /* save as draft if Instantly fails */ }
+    } catch (err) {
+      console.warn('Instantly push failed, saving as draft:', err.message);
+    }
 
     onSave(camp, selLeads);
   }
@@ -157,7 +160,7 @@ function CampaignModal({ leads, agents, onSave, onClose }) {
             </div>
             <div style={{ display:'flex', justifyContent:'space-between', marginTop:16, alignItems:'center' }}>
               <span style={{ fontSize:11, color:'var(--muted)' }}>{selLeads.length} selected</span>
-              <div style={{ display:'flex', gap:8 }}>
+              <div className="form-actions">
                 <button className="btn btn--ghost" onClick={onClose}>Cancel</button>
                 <button className="btn btn--primary" disabled={selLeads.length === 0} onClick={() => setStep(2)}>
                   Next →
@@ -169,7 +172,7 @@ function CampaignModal({ leads, agents, onSave, onClose }) {
 
         {/* Step 2 — Brief */}
         {step === 2 && (
-          <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+          <div className="form-stack" style={{ gap:12 }}>
             <div>
               <label className="settings-label">Campaign Name</label>
               <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="Q1 SaaS Growth Campaign" />
@@ -211,7 +214,7 @@ function CampaignModal({ leads, agents, onSave, onClose }) {
                 ⚠ {genError}
               </div>
             )}
-            <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:4 }}>
+            <div className="form-actions" style={{ justifyContent:'flex-end', marginTop:4 }}>
               <button className="btn btn--ghost" onClick={() => setStep(1)}>← Back</button>
               <button className="btn btn--primary" disabled={genning || !brief.offer || !brief.icp} onClick={generateSequence}>
                 {genning ? '🧠 Generating…' : '🧠 Generate 12-Step Sequence'}
@@ -244,7 +247,7 @@ function CampaignModal({ leads, agents, onSave, onClose }) {
                 </div>
               ))}
             </div>
-            <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:16 }}>
+            <div className="form-actions" style={{ justifyContent:'flex-end', marginTop:16 }}>
               <button className="btn btn--ghost" onClick={() => setStep(2)}>← Regenerate</button>
               <button className="btn btn--primary" onClick={() => setStep(4)}>Next →</button>
             </div>
@@ -256,7 +259,7 @@ function CampaignModal({ leads, agents, onSave, onClose }) {
           <div>
             <div className="card" style={{ padding:16, marginBottom:16 }}>
               <div className="section-label mb-10">Campaign Summary</div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, fontSize:12 }}>
+              <div className="form-grid" style={{ fontSize:12, gap:8 }}>
                 <div><span style={{ color:'var(--muted)' }}>Name:</span> {name || 'Untitled Campaign'}</div>
                 <div><span style={{ color:'var(--muted)' }}>Leads:</span> {selLeads.length}</div>
                 <div><span style={{ color:'var(--muted)' }}>Tone:</span> {brief.tone}</div>
@@ -274,7 +277,7 @@ function CampaignModal({ leads, agents, onSave, onClose }) {
             <div style={{ fontSize:11, color:'var(--muted)', marginBottom:16, background:`${C.accent}08`, border:`1px solid ${C.accent}20`, borderRadius:8, padding:'10px 14px' }}>
               🚀 Campaign will be saved locally. If INSTANTLY_API_KEY is set, it will also be pushed live to Instantly.ai automatically.
             </div>
-            <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+            <div className="form-actions" style={{ justifyContent:'flex-end' }}>
               <button className="btn btn--ghost" onClick={() => setStep(3)}>← Back</button>
               <button className="btn btn--primary" onClick={launch}>🚀 Launch Campaign</button>
             </div>
@@ -325,7 +328,7 @@ function CampaignCard({ camp, leads, onDelete }) {
 
       {expanded && (
         <div style={{ marginTop:14, paddingTop:14, borderTop:'1px solid var(--border)' }}>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+          <div className="grid-2" style={{ gap:16 }}>
             {/* Brief */}
             <div>
               <div className="section-label mb-8">Campaign Brief</div>
@@ -392,7 +395,13 @@ function CampaignCard({ camp, leads, onDelete }) {
             <button
               className="btn btn--sm"
               style={{ background:`${C.red}12`, borderColor:C.red, color:C.red }}
-              onClick={() => window.confirm(`Delete campaign "${camp.name}"?`) && onDelete(camp.id)}
+              onClick={() => openConfirm({
+                title: `Delete "${camp.name}"?`,
+                message: 'This campaign and its stats will be permanently removed.',
+                confirmLabel: 'Delete Campaign',
+                danger: true,
+                onConfirm: () => onDelete(camp.id),
+              })}
             >
               ✕ Delete
             </button>
@@ -403,12 +412,20 @@ function CampaignCard({ camp, leads, onDelete }) {
   );
 }
 
-const REPLY_COLORS = { positive: C.green, neutral: C.accent3, negative: C.red };
+const REPLY_COLORS = { positive: C.green, 'booking-link-sent': C.accent, neutral: C.accent3, negative: C.red };
+const INTENT_LABELS = { POSITIVE: '🟢 Positive', NEGATIVE: '🔴 Negative', NEUTRAL: '🟡 Neutral', UNSUBSCRIBE: '🚫 Unsub', REFERRAL: '🔄 Referral', MAYBE_LATER: '⏳ Later' };
+const INTENT_COLORS = { POSITIVE: C.green, NEGATIVE: C.red, NEUTRAL: C.accent3, UNSUBSCRIBE: C.red, REFERRAL: C.accent, MAYBE_LATER: C.yellow };
 
 // ── Main view ───────────────────────────────────────────────────
-export default function Campaigns({ campaigns, setCampaigns, leads, setLeads, agents }) {
+export default function Campaigns({ campaigns, setCampaigns, leads, setLeads, agents, bookMeeting, sendBookingLink, pipelineConfig, openConfirm }) {
   const [showModal, setShowModal] = useState(false);
   const [subTab,    setSubTab]    = useState('campaigns');
+  const [bookingLead, setBookingLead] = useState(null);
+  const [bookingTime, setBookingTime] = useState('');
+  const [bookingDur,  setBookingDur]  = useState(30);
+  const [bookingBusy, setBookingBusy] = useState(false);
+  const [bookingResult, setBookingResult] = useState(null);
+  const [bookingMode, setBookingMode] = useState('fixed'); // 'fixed' | 'calcom'
 
   const totalSent   = campaigns.reduce((s, c) => s + c.stats.sent, 0);
   const totalBooked = campaigns.reduce((s, c) => s + c.stats.booked, 0);
@@ -430,11 +447,37 @@ export default function Campaigns({ campaigns, setCampaigns, leads, setLeads, ag
   }
 
   const replies = (leads ?? []).filter(l => l.replyStatus && l.replyStatus !== 'none');
-  const replyGroups = { positive: [], neutral: [], negative: [] };
+  const replyGroups = { positive: [], 'booking-link-sent': [], neutral: [], negative: [] };
   replies.forEach(l => { if (replyGroups[l.replyStatus]) replyGroups[l.replyStatus].push(l); });
 
   function bookCall(lead) {
-    setLeads(p => p.map(l => l.id === lead.id ? { ...l, status: 'prospect', replyStatus: 'booked' } : l));
+    const d = new Date();
+    d.setDate(d.getDate() + (d.getDay() >= 5 ? 8 - d.getDay() : 1));
+    d.setHours(10, 0, 0, 0);
+    setBookingTime(d.toISOString().slice(0, 16));
+    setBookingDur(30);
+    setBookingResult(null);
+    setBookingMode(pipelineConfig?.bookingMode === 'calcom' && pipelineConfig?.calEventTypeId ? 'calcom' : 'fixed');
+    setBookingLead(lead);
+  }
+
+  async function confirmBooking() {
+    if (!bookingLead) return;
+    setBookingBusy(true);
+    try {
+      if (bookingMode === 'calcom' && sendBookingLink) {
+        const result = await sendBookingLink(bookingLead);
+        setBookingResult(result);
+      } else {
+        if (!bookingTime || !bookMeeting) return;
+        const result = await bookMeeting(bookingLead, new Date(bookingTime).toISOString(), bookingDur);
+        setBookingResult(result);
+      }
+    } catch (err) {
+      setBookingResult({ error: err.message });
+    } finally {
+      setBookingBusy(false);
+    }
   }
 
   function markLost(lead) {
@@ -443,7 +486,7 @@ export default function Campaigns({ campaigns, setCampaigns, leads, setLeads, ag
 
   return (
     <section className="view" aria-labelledby="campaigns-title">
-      <header className="view-header" style={{ marginBottom:20 }}>
+      <header className="view-header">
         <div>
           <h1 id="campaigns-title" className="view-title">Campaigns</h1>
           <p className="view-subtitle">AI-powered cold email sequences via Instantly.ai</p>
@@ -483,21 +526,16 @@ export default function Campaigns({ campaigns, setCampaigns, leads, setLeads, ag
         ].map((k, i) => (
           <div key={i} className="card card--sm">
             <div className="kpi-label">{k.l}</div>
-            <div style={{ fontSize:22, fontWeight:700, color:k.c, fontFamily:'var(--mono)' }}>{k.v}</div>
+            <div className="kpi-value-lg" style={{ color:k.c }}>{k.v}</div>
           </div>
         ))}
       </div>
 
       {/* Campaign list */}
       {subTab === 'campaigns' && (
-        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-          {campaigns.length === 0 && (
-            <div className="card" style={{ padding:48, textAlign:'center', color:'var(--muted)' }}>
-              <div style={{ fontSize:32, marginBottom:12 }}>📨</div>
-              <div style={{ fontSize:14, fontWeight:600, marginBottom:6 }}>No campaigns yet</div>
-              <div style={{ fontSize:12, marginBottom:16 }}>Build a 12-step AI sequence and push it to Instantly.ai in minutes.</div>
-              <button className="btn btn--primary" onClick={() => setShowModal(true)}>+ Create First Campaign</button>
-            </div>
+        <div className="form-stack" style={{ gap:10 }}>
+          {campaigns.length === 0 && !showModal && (
+            <EmptyState icon="📨" title="No campaigns yet" subtitle="Create an AI-generated cold email sequence to start outreach" action="+ New Campaign" onAction={() => setShowModal(true)} />
           )}
           {campaigns.map(c => (
             <CampaignCard key={c.id} camp={c} leads={leads} onDelete={deleteCampaign} />
@@ -507,7 +545,7 @@ export default function Campaigns({ campaigns, setCampaigns, leads, setLeads, ag
 
       {/* Reply Inbox */}
       {subTab === 'replies' && (
-        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        <div className="form-stack" style={{ gap:14 }}>
           {replies.length === 0 && (
             <div className="card" style={{ padding:48, textAlign:'center', color:'var(--muted)' }}>
               <div style={{ fontSize:32, marginBottom:12 }}>📬</div>
@@ -517,24 +555,39 @@ export default function Campaigns({ campaigns, setCampaigns, leads, setLeads, ag
           )}
           {Object.entries(replyGroups).map(([type, items]) => items.length === 0 ? null : (
             <div key={type}>
-              <div className="section-label mb-8" style={{ color: REPLY_COLORS[type] }}>
-                {type === 'positive' ? '✅' : type === 'neutral' ? '💬' : '❌'} {type.toUpperCase()} ({items.length})
+              <div className="section-label mb-8" style={{ color: REPLY_COLORS[type] ?? 'var(--accent)' }}>
+                {type === 'positive' ? '✅' : type === 'booking-link-sent' ? '📅' : type === 'neutral' ? '💬' : '❌'} {type === 'booking-link-sent' ? 'LINK SENT' : type.toUpperCase()} ({items.length})
               </div>
-              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              <div className="form-stack" style={{ gap:8 }}>
                 {items.map(lead => (
                   <div key={lead.id} className="card" style={{
                     padding:'12px 16px',
-                    borderLeft:`3px solid ${REPLY_COLORS[type]}`,
+                    borderLeft:`3px solid ${REPLY_COLORS[type] ?? 'var(--accent)'}`,
                     display:'flex', alignItems:'center', gap:12,
                   }}>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontWeight:600, fontSize:13 }}>{lead.name} <span style={{ color:'var(--muted)', fontWeight:400 }}>@ {lead.company}</span></div>
-                      <div style={{ fontSize:11, color:'var(--muted)', marginTop:2, fontFamily:'var(--mono)' }}>
-                        {lead.email} · Score {lead.leadScore} · Campaign step {lead.sequenceStep ?? '—'}
+                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                        <span style={{ fontWeight:600, fontSize:13 }}>{lead.name} <span style={{ color:'var(--muted)', fontWeight:400 }}>@ {lead.company}</span></span>
+                        {lead.replyClassification?.intent && (
+                          <span style={{
+                            fontSize:10, fontFamily:'var(--mono)', fontWeight:600,
+                            padding:'2px 8px', borderRadius:99,
+                            background:`${INTENT_COLORS[lead.replyClassification.intent] ?? 'var(--muted)'}18`,
+                            color: INTENT_COLORS[lead.replyClassification.intent] ?? 'var(--muted)',
+                            border:`1px solid ${INTENT_COLORS[lead.replyClassification.intent] ?? 'var(--muted)'}30`,
+                          }}>
+                            {INTENT_LABELS[lead.replyClassification.intent] ?? lead.replyClassification.intent}
+                            {lead.replyClassification.confidence ? ` ${Math.round(lead.replyClassification.confidence * 100)}%` : ''}
+                          </span>
+                        )}
                       </div>
-                      {lead.replySnippet && (
+                      <div style={{ fontSize:11, color:'var(--muted)', marginTop:2, fontFamily:'var(--mono)' }}>
+                        {lead.email} · Score {lead.leadScore} · Step {lead.sequenceStep ?? '—'}
+                        {lead.replyReceivedAt && ` · Replied ${new Date(lead.replyReceivedAt).toLocaleDateString()}`}
+                      </div>
+                      {(lead.replyClassification?.summary || lead.replySnippet) && (
                         <div style={{ fontSize:11, color:'var(--dim)', marginTop:6, fontStyle:'italic', background:'var(--surface2)', borderRadius:6, padding:'6px 10px' }}>
-                          "{lead.replySnippet}"
+                          {lead.replyClassification?.summary ? `AI: ${lead.replyClassification.summary}` : `"${lead.replySnippet}"`}
                         </div>
                       )}
                     </div>
@@ -546,6 +599,12 @@ export default function Campaigns({ campaigns, setCampaigns, leads, setLeads, ag
                           onClick={() => bookCall(lead)}
                         >
                           📅 Book Call
+                        </button>
+                      )}
+                      {type === 'booking-link-sent' && lead.calBookingUrl && (
+                        <button className="btn btn--sm" style={{ background:`${C.accent}15`, borderColor:C.accent, color:C.accent }}
+                          onClick={() => { navigator.clipboard.writeText(lead.calBookingUrl); }}>
+                          📋 Copy Link
                         </button>
                       )}
                       <button
@@ -571,6 +630,103 @@ export default function Campaigns({ campaigns, setCampaigns, leads, setLeads, ag
           onSave={saveCampaign}
           onClose={() => setShowModal(false)}
         />
+      )}
+
+      {/* Book Call Modal */}
+      {bookingLead && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && !bookingBusy && setBookingLead(null)}>
+          <div className="modal" style={{ maxWidth:420 }}>
+            <div className="flex-between" style={{ marginBottom:16 }}>
+              <h3 style={{ fontSize:15, fontWeight:700, fontFamily:'var(--sans)' }}>📅 Book Discovery Call</h3>
+              <button className="btn btn--sm" onClick={() => setBookingLead(null)} disabled={bookingBusy}>✕</button>
+            </div>
+            <div style={{ fontSize:13, color:'var(--dim)', marginBottom:14 }}>
+              <strong>{bookingLead.name}</strong> @ {bookingLead.company} · {bookingLead.email}
+            </div>
+
+            {bookingResult?.error ? (
+              <div style={{ padding:12, background:'rgba(248,113,113,0.1)', border:'1px solid rgba(248,113,113,0.3)', borderRadius:8, color:'var(--red)', fontSize:12, marginBottom:12 }}>
+                {bookingResult.error}
+              </div>
+            ) : bookingResult ? (
+              <div style={{ padding:14, background:'rgba(52,211,153,0.08)', border:'1px solid rgba(52,211,153,0.3)', borderRadius:8, marginBottom:12 }}>
+                <div style={{ fontSize:13, fontWeight:600, color:C.green, marginBottom:8 }}>
+                  {bookingResult.bookingUrl ? 'Booking link ready' : 'Call booked'}
+                </div>
+                {bookingResult.bookingUrl && (
+                  <div style={{ fontSize:11, fontFamily:'var(--mono)', color:'var(--dim)', marginBottom:6, wordBreak:'break-all' }}>
+                    Link: <a href={bookingResult.bookingUrl} target="_blank" rel="noreferrer" style={{ color:'var(--accent)' }}>{bookingResult.bookingUrl}</a>
+                    <button className="btn btn--sm" style={{ marginLeft:8, fontSize:9, padding:'2px 6px' }}
+                      onClick={() => { navigator.clipboard.writeText(bookingResult.bookingUrl); }}>Copy</button>
+                  </div>
+                )}
+                {bookingResult.zoomJoinUrl && (
+                  <div style={{ fontSize:11, fontFamily:'var(--mono)', color:'var(--dim)', marginBottom:4 }}>
+                    Zoom: <a href={bookingResult.zoomJoinUrl} target="_blank" rel="noreferrer" style={{ color:'var(--accent)' }}>{bookingResult.zoomJoinUrl}</a>
+                  </div>
+                )}
+                {bookingResult.calendarLink && (
+                  <div style={{ fontSize:11, fontFamily:'var(--mono)', color:'var(--dim)' }}>
+                    Calendar: <a href={bookingResult.calendarLink} target="_blank" rel="noreferrer" style={{ color:'var(--accent)' }}>View event</a>
+                  </div>
+                )}
+                <button className="btn btn--primary" style={{ marginTop:12, width:'100%' }} onClick={() => setBookingLead(null)}>Done</button>
+              </div>
+            ) : (
+              <>
+                {/* Mode toggle */}
+                {pipelineConfig?.calEventTypeId && (
+                  <div style={{ display:'flex', gap:10, marginBottom:12, padding:'8px 10px', background:'var(--surface2)', borderRadius:6, border:'1px solid var(--border)' }}>
+                    <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, fontFamily:'var(--sans)', cursor:'pointer', color: bookingMode === 'fixed' ? 'var(--accent)' : 'var(--muted)' }}>
+                      <input type="radio" name="bm" checked={bookingMode === 'fixed'} onChange={() => setBookingMode('fixed')} />
+                      Fixed Time
+                    </label>
+                    <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, fontFamily:'var(--sans)', cursor:'pointer', color: bookingMode === 'calcom' ? 'var(--accent)' : 'var(--muted)' }}>
+                      <input type="radio" name="bm" checked={bookingMode === 'calcom'} onChange={() => setBookingMode('calcom')} />
+                      Self-Schedule (Cal.com)
+                    </label>
+                  </div>
+                )}
+
+                {bookingMode === 'calcom' ? (
+                  <div style={{ textAlign:'center', padding:'8px 0' }}>
+                    <p style={{ fontSize:12, color:'var(--dim)', marginBottom:10 }}>
+                      Generate a Cal.com booking link so <strong>{bookingLead.name}</strong> can pick their own time.
+                    </p>
+                    <div style={{ display:'flex', gap:8 }}>
+                      <button className="btn" style={{ flex:1 }} onClick={() => setBookingLead(null)} disabled={bookingBusy}>Cancel</button>
+                      <button className="btn btn--primary" style={{ flex:1 }} onClick={confirmBooking} disabled={bookingBusy}>
+                        {bookingBusy ? 'Generating…' : '📅 Generate Link'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="settings-field">
+                      <label className="settings-label">Date & Time</label>
+                      <input type="datetime-local" className="input" value={bookingTime} onChange={e => setBookingTime(e.target.value)} />
+                    </div>
+                    <div className="settings-field">
+                      <label className="settings-label">Duration</label>
+                      <select className="input" value={bookingDur} onChange={e => setBookingDur(+e.target.value)}>
+                        <option value={15}>15 minutes</option>
+                        <option value={30}>30 minutes</option>
+                        <option value={45}>45 minutes</option>
+                        <option value={60}>60 minutes</option>
+                      </select>
+                    </div>
+                    <div className="form-actions" style={{ marginTop:8 }}>
+                      <button className="btn" style={{ flex:1 }} onClick={() => setBookingLead(null)} disabled={bookingBusy}>Cancel</button>
+                      <button className="btn btn--primary" style={{ flex:1 }} onClick={confirmBooking} disabled={bookingBusy || !bookingTime}>
+                        {bookingBusy ? 'Booking…' : 'Book Call'}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       )}
     </section>
   );

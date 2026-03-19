@@ -29,7 +29,7 @@ export default function KnowledgeBase({ pages, setPages }) {
               ← Back
             </button>
             <span aria-hidden="true" style={{ fontSize:22 }}>{pg.icon}</span>
-            <h1 id="kb-page-title" style={{ fontFamily:'var(--sans)', fontSize:18, fontWeight:700 }}>{pg.title}</h1>
+            <h1 id="kb-page-title" className="heading-md">{pg.title}</h1>
             <Badge label={pg.type} color={TYPE_COLOR[pg.type] ?? C.muted}/>
           </div>
           <div className="flex-center gap-6">
@@ -84,7 +84,7 @@ export default function KnowledgeBase({ pages, setPages }) {
 
   return (
     <section className="view view--mid" aria-labelledby="kb-title">
-      <header style={{ marginBottom:14 }}>
+      <header className="view-header">
         <h1 id="kb-title" className="view-title">Knowledge Base</h1>
         <p className="view-subtitle">Internal docs, databases, and templates</p>
       </header>
@@ -105,9 +105,9 @@ export default function KnowledgeBase({ pages, setPages }) {
 
       {/* Starred */}
       {!search && starred.length > 0 && (
-        <div style={{ marginBottom:16 }}>
+        <div className="section-gap">
           <div className="section-label mb-8">⭐ Starred</div>
-          <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+          <div className="form-stack" style={{ gap:5 }}>
             {starred.map(pg => <PageRow key={pg.id} pg={pg} onSelect={setSelectedId}/>)}
           </div>
         </div>
@@ -116,10 +116,10 @@ export default function KnowledgeBase({ pages, setPages }) {
       {/* All / filtered */}
       <div>
         <div className="section-label mb-8">{search ? `Results (${filtered.length})` : 'All Pages'}</div>
-        <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+        <div className="form-stack" style={{ gap:5 }}>
           {filtered.map(pg => <PageRow key={pg.id} pg={pg} onSelect={setSelectedId}/>)}
           {filtered.length === 0 && pages.length === 0 && !search && (
-            <div style={{ padding:40, textAlign:'center', color:'var(--muted)' }}>
+            <div className="empty-msg" style={{ padding:40 }}>
               <div style={{ fontSize:32, marginBottom:12 }}>◎</div>
               <div style={{ fontSize:14, fontWeight:600, marginBottom:6, color:'var(--text)' }}>No documents yet</div>
               <div style={{ fontSize:12, lineHeight:1.6, marginBottom:16 }}>
@@ -138,7 +138,7 @@ export default function KnowledgeBase({ pages, setPages }) {
             </div>
           )}
           {filtered.length === 0 && search && (
-            <div style={{ padding:'20px', textAlign:'center', color:'var(--muted)', fontSize:12 }}>
+            <div className="empty-msg" style={{ padding:20 }}>
               No pages match "{search}"
             </div>
           )}

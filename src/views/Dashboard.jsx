@@ -2,15 +2,16 @@ import { useState, useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Dot, Badge, ProgressBar, ChartTooltip } from '../components/ui/index.jsx';
 import { C } from '../theme.js';
-import { revenueData, seedActivity, seedSchedule } from '../data.js';
+import { revenueData } from '../data.js';
+import EmptyState from '../components/ui/EmptyState.jsx';
 
 export default function Dashboard({
   agents, columns, setColumns, workflows, clients, setClients, allTasks, actAgents, mrr,
   clock, timer, fmtTimer, aiMsgs, setAiMsgs, setTab, setModal,
-  leads, setLeads, setNotifs,
+  leads, setLeads, notifs, setNotifs,
   lastBriefing, autopilotRunning, runAutopilot,
   weeklyReport, weeklyRunning, runWeeklyReport,
-  settings, profile,
+  settings, profile, schedule,
 }) {
   const now = new Date();
   const hr   = now.getHours();
@@ -70,8 +71,8 @@ export default function Dashboard({
   const showChk    = !chkDismissed && !allDone;
 
   // ── Smart automation derived data ───────────────────────────
-  const hotLeads      = (leads ?? []).filter(l => l.leadScore >= 80 && l.replyStatus === 'positive');
-  const atRiskClients = clients.filter(c => c.status === 'active' && (c.health ?? 100) < 75);
+  const hotLeads      = useMemo(() => (leads ?? []).filter(l => l.leadScore >= 80 && l.replyStatus === 'positive'), [leads]);
+  const atRiskClients = useMemo(() => clients.filter(c => c.status === 'active' && (c.health ?? 100) < 75), [clients]);
 
   function graduateLead(lead) {
     setClients(p => [...p, {
@@ -144,92 +145,55 @@ export default function Dashboard({
 
       {/* ── Profile nudge ──────────────────────────────────────── */}
       {showNudge && (
-        <div style={{
-          display:'flex', alignItems:'center', justifyContent:'space-between', gap:12,
-          padding:'10px 16px', marginBottom:16,
-          background:`${C.accent3}10`, border:`1px solid ${C.accent3}30`, borderRadius:10,
-        }}>
-          <span style={{ fontSize:12, color:'var(--muted)' }}>
+        <div className="dash-nudge">
+          <span className="dash-nudge__text">
             👤 Complete your profile — add your email and avatar so your workspace feels personal.
           </span>
-          <div style={{ display:'flex', gap:8, flexShrink:0 }}>
-            <button
-              className="btn btn--sm"
-              style={{ background:`${C.accent3}15`, borderColor:C.accent3, color:C.accent3 }}
-              onClick={() => setTab('profile')}
-            >
+          <div className="dash-nudge__actions">
+            <button className="btn btn--sm" onClick={() => setTab('profile')}>
               Go to Profile →
             </button>
-            <button
-              onClick={dismissNudge}
-              style={{ background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:14, padding:'0 4px' }}
-              aria-label="Dismiss"
-            >×</button>
+            <button className="dash-dismiss" onClick={dismissNudge} aria-label="Dismiss">×</button>
           </div>
         </div>
       )}
 
       {/* ── Setup checklist ────────────────────────────────────── */}
       {showChk && (
-        <div className="card" style={{ marginBottom:20, padding:'16px 20px' }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-              <span style={{ fontSize:13, fontWeight:700 }}>🚀 Get started</span>
-              <span style={{ fontSize:10, fontFamily:'var(--mono)', color:'var(--muted)' }}>
+        <div className="card dash-checklist">
+          <div className="dash-checklist__header">
+            <div className="dash-checklist__title">
+              <strong>🚀 Get started</strong>
+              <span className="dash-checklist__counter">
                 {doneCount}/{checklistItems.length} complete
               </span>
             </div>
-            <button
-              onClick={dismissChecklist}
-              style={{ background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:16, padding:'0 4px' }}
-              aria-label="Dismiss checklist"
-            >×</button>
+            <button className="dash-dismiss" onClick={dismissChecklist} aria-label="Dismiss checklist">×</button>
           </div>
 
-          {/* Progress bar */}
-          <div style={{ height:3, background:'var(--surface2)', borderRadius:2, marginBottom:14, overflow:'hidden' }}>
-            <div style={{
-              height:'100%', borderRadius:2,
-              width:`${(doneCount / checklistItems.length) * 100}%`,
-              background: `linear-gradient(90deg, ${C.accent3}, ${C.accent})`,
-              transition:'width 0.5s ease',
-            }}/>
+          <div className="dash-checklist__progress">
+            <div
+              className="dash-checklist__progress-fill"
+              style={{ width: `${(doneCount / checklistItems.length) * 100}%` }}
+            />
           </div>
 
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+          <div className="dash-checklist__grid">
             {checklistItems.map(item => (
               <div
                 key={item.id}
-                style={{
-                  display:'flex', alignItems:'center', gap:8, padding:'7px 10px',
-                  borderRadius:7, background: item.done ? `${C.accent}06` : 'var(--surface2)',
-                  border:`1px solid ${item.done ? `${C.accent}20` : 'var(--border)'}`,
-                  cursor: item.done ? 'default' : 'pointer',
-                  opacity: item.done ? 0.6 : 1,
-                  transition:'all 0.15s',
-                }}
+                className={`dash-checklist__item${item.done ? ' dash-checklist__item--done' : ''}`}
                 onClick={() => {
                   if (item.done) return;
                   if (item.action) item.action();
                   else if (item.tab) setTab(item.tab);
                 }}
               >
-                <span style={{
-                  width:16, height:16, borderRadius:'50%', flexShrink:0,
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                  fontSize:9, fontWeight:700,
-                  background: item.done ? `${C.accent}25` : 'var(--surface3)',
-                  border:`1px solid ${item.done ? C.accent : 'var(--border)'}`,
-                  color: item.done ? C.accent : 'var(--muted)',
-                }}>
+                <span className="dash-checklist__check">
                   {item.done ? '✓' : ''}
                 </span>
-                <span style={{ fontSize:11, color: item.done ? 'var(--muted)' : 'var(--text)' }}>
-                  {item.label}
-                </span>
-                {!item.done && (
-                  <span style={{ marginLeft:'auto', fontSize:10, color:'var(--muted)' }}>→</span>
-                )}
+                <span className="dash-checklist__label">{item.label}</span>
+                {!item.done && <span className="dash-checklist__arrow">→</span>}
               </div>
             ))}
           </div>
@@ -242,7 +206,7 @@ export default function Dashboard({
           <div className="text-xs text-muted text-upper mb-4">
             COMMAND CENTER — {dateStr.toUpperCase()}
           </div>
-          <h1 id="dash-title" style={{ fontSize: 30, fontFamily: 'var(--sans)', fontWeight: 700, marginBottom: 4 }}>
+          <h1 id="dash-title" className="heading-xl">
             Good {greeting} ☕
           </h1>
           <p className="view-subtitle">
@@ -251,73 +215,63 @@ export default function Dashboard({
             ${(mrr/1000).toFixed(1)}k MRR
           </p>
         </div>
-        <div style={{ textAlign:'right' }}>
-          <div
-            style={{ fontSize:34, fontFamily:'var(--sans)', fontWeight:700, color:'var(--accent)', lineHeight:1, fontVariantNumeric:'tabular-nums' }}
-            aria-live="off"
-          >
-            {clock}
-          </div>
+        <div className="dash-header-right">
+          <div className="dash-clock" aria-live="off">{clock}</div>
           {timer.on && (
-            <div style={{ fontSize:12, color:'var(--accent2)', marginTop:4, fontFamily:'var(--mono)' }}
-                 aria-live="polite" aria-label={`Timer: ${fmtTimer(timer.sec)}`}>
+            <div className="dash-timer" aria-live="polite" aria-label={`Timer: ${fmtTimer(timer.sec)}`}>
               ⏱ {fmtTimer(timer.sec)}
             </div>
           )}
         </div>
       </header>
 
+      {clients.length === 0 && allTasks.length === 0 && (
+        <EmptyState icon="◈" title="Your command center is empty" subtitle="Add your first client or create a task to get started" action="Add Client" onAction={() => setTab('clients')} />
+      )}
+
       {/* Autopilot Briefing */}
       {lastBriefing ? (
-        <article className="card mb-18" style={{ borderColor: 'rgba(0,255,178,0.2)', background: 'rgba(0,255,178,0.03)' }} aria-label="Autopilot morning briefing">
+        <article className="card dash-briefing mb-18" aria-label="Autopilot morning briefing">
           <div className="flex-between mb-10">
-            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <span aria-hidden="true" style={{ fontSize:16 }}>🤖</span>
-              <span className="section-label" style={{ margin:0 }}>AUTOPILOT BRIEFING</span>
-              <span style={{ fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)' }}>
+            <div className="flex-center gap-2">
+              <span aria-hidden="true">🤖</span>
+              <span className="section-label" style={{ margin: 0 }}>AUTOPILOT BRIEFING</span>
+              <span className="dash-briefing__meta">
                 {lastBriefing.ranAt
                   ? `Last run ${new Date(lastBriefing.ranAt).toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' })}`
                   : ''}
               </span>
             </div>
-            <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-              <span style={{ fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)' }}>Scheduled 7:00 AM</span>
+            <div className="flex-center gap-2">
+              <span className="dash-briefing__meta">Scheduled 7:00 AM</span>
               <button className="btn btn--sm btn--ghost" onClick={runAutopilot} disabled={autopilotRunning}>
                 {autopilotRunning ? '⏳ Running…' : '▶ Run Now'}
               </button>
             </div>
           </div>
-          <p style={{ fontSize:12, color:'var(--dim)', fontFamily:'var(--sans)', lineHeight:1.7, marginBottom:12 }}>
-            {lastBriefing.briefing}
-          </p>
+          <p className="dash-briefing__body">{lastBriefing.briefing}</p>
           {lastBriefing.topActions?.length > 0 && (
-            <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom: lastBriefing.flagged?.length ? 10 : 0 }}>
+            <div className="dash-pills" style={{ marginBottom: lastBriefing.flagged?.length ? 10 : 0 }}>
               {lastBriefing.topActions.map((a, i) => (
-                <span key={i} style={{ fontSize:10, padding:'3px 10px', borderRadius:99, border:'1px solid rgba(0,255,178,0.25)', color:'var(--accent)', fontFamily:'var(--mono)', background:'rgba(0,255,178,0.06)' }}>
-                  {i + 1}. {a}
-                </span>
+                <span key={i} className="dash-pill dash-pill--accent">{i + 1}. {a}</span>
               ))}
             </div>
           )}
           {lastBriefing.flagged?.length > 0 && (
-            <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:8 }}>
+            <div className="dash-pills" style={{ marginTop: 8 }}>
               {lastBriefing.flagged.map((f, i) => (
-                <span key={i} style={{ fontSize:10, padding:'3px 10px', borderRadius:99, border:'1px solid rgba(251,191,36,0.3)', color:'var(--yellow)', fontFamily:'var(--mono)', background:'rgba(251,191,36,0.06)' }}>
-                  ⚠ {f.name}: {f.reason}
-                </span>
+                <span key={i} className="dash-pill dash-pill--warning">⚠ {f.name}: {f.reason}</span>
               ))}
             </div>
           )}
         </article>
       ) : (
-        <article className="card mb-18" style={{ padding:'14px 20px', borderStyle:'dashed', opacity:0.75 }} aria-label="Autopilot not yet run">
+        <article className="card dash-briefing--empty mb-18" aria-label="Autopilot not yet run">
           <div className="flex-between">
-            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <div className="flex-center gap-2">
               <span aria-hidden="true">🤖</span>
-              <span className="section-label" style={{ margin:0 }}>AUTOPILOT</span>
-              <span style={{ fontSize:10, color:'var(--muted)', fontFamily:'var(--mono)' }}>
-                Runs daily at 7:00 AM · Not yet run today
-              </span>
+              <span className="section-label" style={{ margin: 0 }}>AUTOPILOT</span>
+              <span className="dash-briefing__meta">Runs daily at 7:00 AM · Not yet run today</span>
             </div>
             <button className="btn btn--sm btn--ghost" onClick={runAutopilot} disabled={autopilotRunning}>
               {autopilotRunning ? '⏳ Running…' : '▶ Run Briefing Now'}
@@ -328,18 +282,18 @@ export default function Dashboard({
 
       {/* Smart Alerts — Ready to Graduate + At-Risk Clients */}
       {(hotLeads.length > 0 || atRiskClients.length > 0) && (
-        <div style={{ display:'grid', gridTemplateColumns: hotLeads.length && atRiskClients.length ? '1fr 1fr' : '1fr', gap:14, marginBottom:18 }}>
+        <div className={`dash-alert-grid${hotLeads.length && atRiskClients.length ? ' dash-alert-grid--two' : ''}`}>
           {hotLeads.length > 0 && (
-            <article className="card" style={{ padding:16, borderColor:'rgba(0,255,178,0.3)', background:'rgba(0,255,178,0.02)' }} aria-label="Leads ready to graduate">
+            <article className="card dash-alert-card--success" aria-label="Leads ready to graduate">
               <div className="flex-between mb-10">
-                <span className="section-label" style={{ margin:0 }}>🚀 READY TO GRADUATE</span>
-                <span style={{ fontSize:9, color:C.accent, fontFamily:'var(--mono)' }}>{hotLeads.length} lead{hotLeads.length !== 1 ? 's' : ''} · score ≥80 + positive reply</span>
+                <span className="section-label" style={{ margin: 0 }}>🚀 READY TO GRADUATE</span>
+                <span className="dash-briefing__meta" style={{ color: C.accent }}>{hotLeads.length} lead{hotLeads.length !== 1 ? 's' : ''} · score ≥80 + positive reply</span>
               </div>
               {hotLeads.map(lead => (
-                <div key={lead.id} className="dash-row-item" style={{ border:`1px solid rgba(0,255,178,0.2)`, marginBottom:4 }}>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:11, fontWeight:600 }}>{lead.name}</div>
-                    <div style={{ fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)' }}>{lead.company} · score {lead.leadScore}</div>
+                <div key={lead.id} className="dash-row-item dash-alert-row">
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="body-sm fw-600">{lead.name}</div>
+                    <div className="dash-briefing__meta">{lead.company} · score {lead.leadScore}</div>
                   </div>
                   <button className="btn btn--xs btn--primary" onClick={() => graduateLead(lead)}>
                     → Graduate
@@ -349,25 +303,19 @@ export default function Dashboard({
             </article>
           )}
           {atRiskClients.length > 0 && (
-            <article className="card" style={{ padding:16, borderColor:'rgba(251,191,36,0.35)', background:'rgba(251,191,36,0.02)' }} aria-label="At-risk clients">
+            <article className="card dash-alert-card--warning" aria-label="At-risk clients">
               <div className="flex-between mb-10">
-                <span className="section-label" style={{ margin:0 }}>⚠ AT-RISK CLIENTS</span>
-                <span style={{ fontSize:9, color:C.yellow, fontFamily:'var(--mono)' }}>{atRiskClients.length} below 75% health</span>
+                <span className="section-label" style={{ margin: 0 }}>⚠ AT-RISK CLIENTS</span>
+                <span className="dash-briefing__meta" style={{ color: C.yellow }}>{atRiskClients.length} below 75% health</span>
               </div>
               {atRiskClients.map(client => (
-                <div key={client.id} className="dash-row-item" style={{ border:`1px solid rgba(251,191,36,0.25)`, marginBottom:4 }}>
-                  <span style={{ width:7, height:7, borderRadius:'50%', background:client.color ?? C.accent2, flexShrink:0 }}/>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:11, fontWeight:600 }}>{client.name}</div>
-                    <div style={{ fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)' }}>Health {client.health}% · ${(client.mrr/1000).toFixed(1)}k MRR</div>
+                <div key={client.id} className="dash-row-item dash-alert-row dash-alert-row--warning">
+                  <span className="dash-color-dot" style={{ background: client.color ?? C.accent2 }}/>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="body-sm fw-600">{client.name}</div>
+                    <div className="dash-briefing__meta">Health {client.health}% · ${(client.mrr/1000).toFixed(1)}k MRR</div>
                   </div>
-                  <button
-                    className="btn btn--xs"
-                    style={{ background:'rgba(251,191,36,0.1)', borderColor:'rgba(251,191,36,0.4)', color:C.yellow }}
-                    onClick={() => setTab('clients')}
-                  >
-                    View
-                  </button>
+                  <button className="btn btn--xs btn--warning" onClick={() => setTab('clients')}>View</button>
                 </div>
               ))}
             </article>
@@ -381,7 +329,7 @@ export default function Dashboard({
           <article key={i} className="card card--sm" role="listitem">
             <div className="flex-between mb-6">
               <span className="kpi-label">{m.l}</span>
-              <span aria-hidden="true" style={{ fontSize:14 }}>{m.icon}</span>
+              <span aria-hidden="true">{m.icon}</span>
             </div>
             <div className="kpi-value">{m.v}</div>
             <div className="kpi-sub" style={{ color: m.c }}>{m.s}</div>
@@ -389,25 +337,83 @@ export default function Dashboard({
         ))}
       </div>
 
+      {/* Lead-to-Meeting Pipeline Funnel */}
+      {leads && leads.length > 0 && (() => {
+        const now = new Date();
+        const thisMonth = leads.filter(l => {
+          const d = new Date(l.addedOn ?? l.since);
+          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        });
+        const totalLeads = thisMonth.length;
+        const enrolled = leads.filter(l => l.campaignId).length;
+        const replied = leads.filter(l => l.replyStatus && l.replyStatus !== 'none').length;
+        const positive = leads.filter(l => l.replyStatus === 'positive' || l.replyClassification?.intent === 'POSITIVE').length;
+        const booked = leads.filter(l => l.bookedMeeting).length;
+        const bookedThisMonth = leads.filter(l => {
+          if (!l.bookedMeeting?.scheduledAt) return false;
+          const d = new Date(l.bookedMeeting.scheduledAt);
+          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        }).length;
+        const TARGET_MIN = 30, TARGET_MAX = 50;
+        const pct = Math.min(100, Math.round(bookedThisMonth / TARGET_MIN * 100));
+        const stages = [
+          { label: 'Leads Sourced', v: totalLeads, c: C.muted },
+          { label: 'Enrolled', v: enrolled, c: C.accent3 },
+          { label: 'Replies', v: replied, c: C.yellow },
+          { label: 'Positive', v: positive, c: C.green },
+          { label: 'Booked', v: booked, c: C.accent },
+        ];
+        return (
+          <article className="card mb-18" style={{ borderColor: `${C.accent}25` }}>
+            <div className="flex-between mb-12">
+              <div className="section-label" style={{ margin: 0 }}>Lead-to-Meeting Pipeline</div>
+              <span className="mono-sm" style={{ color: pct >= 100 ? C.green : pct >= 60 ? C.yellow : C.red }}>
+                {bookedThisMonth}/{TARGET_MIN}–{TARGET_MAX} calls · {pct}%
+              </span>
+            </div>
+            {/* Funnel bars */}
+            <div className="dash-funnel" style={{ gridTemplateColumns: `repeat(${stages.length}, 1fr)` }}>
+              {stages.map((s, i) => (
+                <div key={i} className="dash-funnel__stage">
+                  <div className="dash-funnel__value" style={{ color: s.c }}>{s.v}</div>
+                  <div className="dash-funnel__label">{s.label}</div>
+                  {i < stages.length - 1 && stages[i].v > 0 && (
+                    <div className="dash-funnel__rate">{stages[i+1].v > 0 ? `${Math.round(stages[i+1].v / stages[i].v * 100)}%` : '—'}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {/* Goal progress bar */}
+            <div className="dash-goal">
+              <span className="dash-goal__label">MONTHLY GOAL</span>
+              <div className="dash-goal__track">
+                <div className="dash-goal__fill" style={{ width: `${pct}%`, background: pct >= 100 ? C.green : `linear-gradient(90deg, ${C.accent3}, ${C.accent})` }} />
+              </div>
+              <span className="dash-goal__value" style={{ color: pct >= 100 ? C.green : C.accent }}>{bookedThisMonth}</span>
+            </div>
+          </article>
+        );
+      })()}
+
       {/* Campaign & Creator Pipeline Widget */}
       <article className="card mb-18" aria-label="Campaign and creator pipeline">
         <div className="flex-between mb-14">
           <div className="section-label">Campaign & Creator Pipeline</div>
           <span className="text-xs text-muted">{pipelineClients.length} active prospect{pipelineClients.length !== 1 ? 's' : ''}</span>
         </div>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:24 }}>
+        <div className="dash-pipeline">
           {/* Outreach funnel */}
           <div>
-            <div style={{ fontSize:9, fontFamily:'var(--mono)', color:'var(--muted)', textTransform:'uppercase', letterSpacing:1, marginBottom:10 }}>Outreach Funnel</div>
-            <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+            <div className="dash-subsection-label">Outreach Funnel</div>
+            <div className="dash-bar-group">
               {stageCounts.map(({ s, label, count, color }) => (
                 <div key={s}>
-                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
-                    <span style={{ fontSize:10, color:'var(--muted)', fontFamily:'var(--mono)' }}>{label}</span>
-                    <span style={{ fontSize:10, fontWeight:700, fontFamily:'var(--mono)', color }}>{count}</span>
+                  <div className="dash-bar-row__header">
+                    <span className="dash-bar-row__label">{label}</span>
+                    <span className="dash-bar-row__value" style={{ color }}>{count}</span>
                   </div>
-                  <div style={{ height:4, borderRadius:2, background:'var(--border)', overflow:'hidden' }}>
-                    <div style={{ height:'100%', width:`${(count / pipelineTotal) * 100}%`, background:color, borderRadius:2, transition:'width .4s ease' }}/>
+                  <div className="dash-bar-track">
+                    <div className="dash-bar-fill" style={{ width: `${(count / pipelineTotal) * 100}%`, background: color }}/>
                   </div>
                 </div>
               ))}
@@ -415,17 +421,17 @@ export default function Dashboard({
           </div>
           {/* Creator KPIs */}
           <div>
-            <div style={{ fontSize:9, fontFamily:'var(--mono)', color:'var(--muted)', textTransform:'uppercase', letterSpacing:1, marginBottom:10 }}>Creator / KOL Stats</div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+            <div className="dash-subsection-label">Creator / KOL Stats</div>
+            <div className="dash-mini-kpis">
               {[
                 { l:'Active KOLs',     v: creatorClients.length,                              c:'#EC4899' },
                 { l:'Creator MRR',     v: `$${(creatorMrr/1000).toFixed(1)}k`,                c:'#EC4899' },
                 { l:'Pipeline Leads',  v: pipelineClients.length,                             c: C.accent5 },
                 { l:'Est. Close MRR',  v: `~$${((pipelineClients.reduce((s,c)=>s+(c.mrr||0),0))/1000).toFixed(1)}k`, c: C.accent5 },
               ].map((m, i) => (
-                <div key={i} style={{ background:'var(--surface2)', borderRadius:8, padding:'10px 12px', textAlign:'center' }}>
-                  <div style={{ fontSize:17, fontWeight:700, fontFamily:'var(--sans)', color:m.c }}>{m.v}</div>
-                  <div style={{ fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)', textTransform:'uppercase', letterSpacing:1, marginTop:2 }}>{m.l}</div>
+                <div key={i} className="dash-mini-kpi">
+                  <div className="dash-mini-kpi__value" style={{ color: m.c }}>{m.v}</div>
+                  <div className="dash-mini-kpi__label">{m.l}</div>
                 </div>
               ))}
             </div>
@@ -434,10 +440,10 @@ export default function Dashboard({
       </article>
 
       {/* Charts + Schedule + Activity */}
-      <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr', gap:14, marginBottom:18 }}>
+      <div className="dash-charts-grid">
         {/* Revenue Chart */}
         <article className="card" aria-label="Revenue trend chart">
-          <div className="section-label" style={{ marginBottom:14 }}>Revenue Trend (6 months)</div>
+          <div className="section-label mb-14">Revenue Trend (6 months)</div>
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={revenueData}>
               <defs>
@@ -459,42 +465,64 @@ export default function Dashboard({
           </ResponsiveContainer>
         </article>
 
-        {/* Schedule */}
-        <article className="card" style={{ padding:16 }} aria-label="Today's schedule">
-          <div className="section-label">Schedule</div>
+        {/* Schedule — live from schedule state */}
+        <article className="card" aria-label="Today's schedule">
+          <div className="flex-between" style={{ marginBottom: 10 }}>
+            <div className="section-label" style={{ marginBottom: 0 }}>Schedule</div>
+            <button
+              className="btn btn--xs btn--ghost"
+              onClick={() => setTab('schedule')}
+              style={{ fontSize: 10, fontFamily: 'var(--mono)' }}
+            >
+              View all →
+            </button>
+          </div>
           <nav className="sched-mini" aria-label="Today's events">
-            {seedSchedule.map((e, i) => {
+            {(schedule ?? []).slice(0, 8).map((e, i) => {
               const h = parseInt(e.time);
               const past = h < hr;
               const cur  = h === hr;
               return (
-                <div key={i} className="sched-mini-item"
+                <div key={e.id ?? i} className="sched-mini-item"
                   style={{ background: cur ? `${C.accent}08` : 'transparent', opacity: past ? 0.3 : 1 }}>
                   <span className="sched-mini-time">{e.time}</span>
-                  <span className="sched-mini-dot" style={{ background: e.cl }}/>
+                  <span className="sched-mini-dot" style={{ background: e.cl ?? e.color ?? C.muted }}/>
                   <span className="sched-mini-title">{e.title}</span>
                 </div>
               );
             })}
+            {(schedule ?? []).length === 0 && (
+              <div style={{ fontSize: 11, color: 'var(--muted)', padding: '12px 0', textAlign: 'center' }}>
+                No events scheduled · <button className="btn btn--xs" style={{ display:'inline', padding:'0 6px', fontSize:10 }} onClick={() => setTab('schedule')}>Add one</button>
+              </div>
+            )}
           </nav>
         </article>
 
-        {/* Activity Feed */}
-        <article className="card" style={{ padding:16 }} aria-label="Recent activity">
+        {/* Activity Feed — live from notifications */}
+        <article className="card" aria-label="Recent activity">
           <div className="section-label">Activity Feed</div>
-          <ul className="feed-list" style={{ listStyle:'none' }}>
-            {seedActivity.slice(0, 7).map((a, i) => {
-              const icon = { complete:'✅', start:'▶️', alert:'⚠️', error:'❌' }[a.type];
+          <ul className="feed-list">
+            {(notifs ?? []).slice(0, 7).map((n, i) => {
+              const icon = { success:'✅', info:'ℹ️', warning:'⚠️', error:'❌' }[n.type] ?? 'ℹ️';
+              const timeLabel = n.timestamp
+                ? (() => { const m = Math.floor((Date.now() - new Date(n.timestamp).getTime()) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m}m ago` : `${Math.floor(m/60)}h ago`; })()
+                : (n.time ? `${n.time} ago` : '');
               return (
-                <li key={i} className="feed-item">
-                  <span className="feed-item__icon" aria-label={a.type}>{icon}</span>
+                <li key={n.id ?? i} className="feed-item" style={{ opacity: n.read ? 0.55 : 1 }}>
+                  <span className="feed-item__icon" aria-label={n.type}>{icon}</span>
                   <div>
-                    <div className="feed-item__action">{a.action}</div>
-                    <div className="feed-item__meta">{a.agent} · {a.time}</div>
+                    <div className="feed-item__action">{n.text}</div>
+                    <div className="feed-item__meta">{timeLabel}</div>
                   </div>
                 </li>
               );
             })}
+            {(notifs ?? []).length === 0 && (
+              <li style={{ fontSize: 11, color: 'var(--muted)', padding: '12px 0', listStyle: 'none', textAlign: 'center' }}>
+                No recent activity
+              </li>
+            )}
           </ul>
         </article>
       </div>
@@ -502,42 +530,42 @@ export default function Dashboard({
       {/* Bottom: Agents + Clients + Workflows */}
       <div className="grid-3 mb-18">
         {/* Agent Fleet */}
-        <article className="card" style={{ padding:16 }} aria-labelledby="dash-agents">
+        <article className="card" aria-labelledby="dash-agents">
           <div id="dash-agents" className="section-label">Agent Fleet</div>
           {agents.map(a => (
             <button key={a.id}
               className="dash-row-item"
-              style={{ width:'100%', textAlign:'left', border:'1px solid var(--border)', borderRadius:6, cursor:'pointer' }}
+              style={{ width: '100%', textAlign: 'left' }}
               onClick={() => setTab('agents')}
               aria-label={`${a.name}: ${a.status}, efficiency ${a.efficiency}%`}
             >
-              <span style={{ fontSize:16 }} aria-hidden="true">{a.icon}</span>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:11, fontWeight:600 }}>{a.name}</div>
-                <div style={{ fontSize:9, color:'var(--muted)' }}>{a.queue.length} queue · {a.lastRun}</div>
+              <span aria-hidden="true">{a.icon}</span>
+              <div style={{ flex: 1 }}>
+                <div className="body-sm fw-600">{a.name}</div>
+                <div className="dash-briefing__meta">{a.queue.length} queue · {a.lastRun}</div>
               </div>
               <Dot status={a.status}/>
-              <span style={{ fontSize:10, fontFamily:'var(--mono)', color: a.efficiency>=90 ? C.accent : C.accent2 }}>{a.efficiency}%</span>
+              <span className="mono-sm" style={{ color: a.efficiency >= 90 ? C.accent : C.accent2 }}>{a.efficiency}%</span>
             </button>
           ))}
         </article>
 
         {/* Client Health */}
-        <article className="card" style={{ padding:16 }} aria-labelledby="dash-clients">
+        <article className="card" aria-labelledby="dash-clients">
           <div id="dash-clients" className="section-label">Client Health</div>
           {clients.filter(c => c.status==='active').map(c => (
             <button key={c.id}
               className="dash-row-item"
-              style={{ width:'100%', textAlign:'left', border:'1px solid var(--border)', borderRadius:6 }}
+              style={{ width: '100%', textAlign: 'left' }}
               onClick={() => setTab('clients')}
               aria-label={`${c.name}: health ${c.health}%, $${(c.mrr/1000).toFixed(1)}k MRR`}
             >
-              <span style={{ width:8, height:8, borderRadius:'50%', background:c.color, flexShrink:0 }}/>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:11, fontWeight:600 }}>{c.name}</div>
-                <div style={{ fontSize:9, color:'var(--muted)' }}>${(c.mrr/1000).toFixed(1)}k/mo · {c.services.length} services</div>
+              <span className="dash-color-dot" style={{ background: c.color }}/>
+              <div style={{ flex: 1 }}>
+                <div className="body-sm fw-600">{c.name}</div>
+                <div className="dash-briefing__meta">${(c.mrr/1000).toFixed(1)}k/mo · {c.services.length} services</div>
               </div>
-              <span style={{ fontSize:10, fontFamily:'var(--mono)', color: c.health>=90 ? C.accent : c.health>=80 ? C.yellow : C.red }}>
+              <span className="mono-sm" style={{ color: c.health >= 90 ? C.accent : c.health >= 80 ? C.yellow : C.red }}>
                 {c.health}%
               </span>
             </button>
@@ -545,14 +573,14 @@ export default function Dashboard({
         </article>
 
         {/* Workflows */}
-        <article className="card" style={{ padding:16 }} aria-labelledby="dash-wf">
+        <article className="card" aria-labelledby="dash-wf">
           <div id="dash-wf" className="section-label">Workflows</div>
           {workflows.map(w => (
-            <div key={w.id} className="dash-row-item" style={{ border:'1px solid var(--border)', borderRadius:6 }}>
+            <div key={w.id} className="dash-row-item">
               <Dot status={w.status}/>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:11, fontWeight:600 }}>⚡ {w.name}</div>
-                <div style={{ fontSize:9, color:'var(--muted)' }}>{w.trigger} · {w.runs} runs</div>
+              <div style={{ flex: 1 }}>
+                <div className="body-sm fw-600">⚡ {w.name}</div>
+                <div className="dash-briefing__meta">{w.trigger} · {w.runs} runs</div>
               </div>
               <Badge label={`${w.successRate}%`} color={w.successRate>=95 ? C.accent : C.yellow}/>
             </div>
@@ -561,19 +589,19 @@ export default function Dashboard({
       </div>
 
       {/* Weekly Report */}
-      <article className="card mb-18" style={{ borderColor: weeklyReport ? 'rgba(123,97,255,0.3)' : 'var(--border)', background: weeklyReport ? 'rgba(123,97,255,0.03)' : undefined, borderStyle: weeklyReport ? 'solid' : 'dashed', opacity: weeklyReport ? 1 : 0.75 }} aria-label="Weekly agency report">
+      <article className={`card mb-18${weeklyReport ? ' dash-report--active' : ' dash-report--empty'}`} aria-label="Weekly agency report">
         <div className="flex-between mb-10">
-          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <span aria-hidden="true" style={{ fontSize:16 }}>📊</span>
-            <span className="section-label" style={{ margin:0 }}>WEEKLY REPORT</span>
+          <div className="flex-center gap-2">
+            <span aria-hidden="true">📊</span>
+            <span className="section-label" style={{ margin: 0 }}>WEEKLY REPORT</span>
             {weeklyReport?.ranAt && (
-              <span style={{ fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)' }}>
+              <span className="dash-briefing__meta">
                 {new Date(weeklyReport.ranAt).toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' })}
               </span>
             )}
           </div>
-          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            <span style={{ fontSize:9, color:'var(--muted)', fontFamily:'var(--mono)' }}>Every Monday 8:00 AM</span>
+          <div className="flex-center gap-2">
+            <span className="dash-briefing__meta">Every Monday 8:00 AM</span>
             <button className="btn btn--sm btn--ghost" onClick={runWeeklyReport} disabled={weeklyRunning}>
               {weeklyRunning ? '⏳ Running…' : '▶ Run Now'}
             </button>
@@ -581,48 +609,42 @@ export default function Dashboard({
         </div>
         {weeklyReport ? (
           <>
-            <p style={{ fontSize:12, color:'var(--dim)', fontFamily:'var(--sans)', lineHeight:1.7, marginBottom:12 }}>
-              {weeklyReport.headline}
-            </p>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:12 }}>
+            <p className="dash-report__headline">{weeklyReport.headline}</p>
+            <div className="dash-report__grid">
               {weeklyReport.topWins?.length > 0 && (
                 <div>
-                  <div style={{ fontSize:9, fontFamily:'var(--mono)', color:C.accent, textTransform:'uppercase', letterSpacing:1, marginBottom:6 }}>Top Wins</div>
+                  <div className="dash-subsection-label" style={{ color: C.accent }}>Top Wins</div>
                   {weeklyReport.topWins.map((w, i) => (
-                    <div key={i} style={{ fontSize:11, color:'var(--dim)', padding:'3px 0', display:'flex', gap:6 }}>
-                      <span style={{ color:C.accent, fontFamily:'var(--mono)', fontSize:10 }}>{i+1}.</span>{w}
+                    <div key={i} className="dash-report__list-item">
+                      <span className="dash-report__list-num" style={{ color: C.accent }}>{i+1}.</span>{w}
                     </div>
                   ))}
                 </div>
               )}
               {weeklyReport.nextWeekPriorities?.length > 0 && (
                 <div>
-                  <div style={{ fontSize:9, fontFamily:'var(--mono)', color:C.accent3, textTransform:'uppercase', letterSpacing:1, marginBottom:6 }}>Next Week</div>
+                  <div className="dash-subsection-label" style={{ color: C.accent3 }}>Next Week</div>
                   {weeklyReport.nextWeekPriorities.map((p, i) => (
-                    <div key={i} style={{ fontSize:11, color:'var(--dim)', padding:'3px 0', display:'flex', gap:6 }}>
-                      <span style={{ color:C.accent3, fontFamily:'var(--mono)', fontSize:10 }}>{i+1}.</span>{p}
+                    <div key={i} className="dash-report__list-item">
+                      <span className="dash-report__list-num" style={{ color: C.accent3 }}>{i+1}.</span>{p}
                     </div>
                   ))}
                 </div>
               )}
             </div>
             {weeklyReport.risks?.length > 0 && (
-              <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom: weeklyReport.recommendation ? 10 : 0 }}>
+              <div className="dash-pills" style={{ marginBottom: weeklyReport.recommendation ? 10 : 0 }}>
                 {weeklyReport.risks.map((r, i) => (
-                  <span key={i} style={{ fontSize:10, padding:'3px 10px', borderRadius:99, border:'1px solid rgba(251,191,36,0.3)', color:C.yellow, fontFamily:'var(--mono)', background:'rgba(251,191,36,0.06)' }}>
-                    ⚠ {r}
-                  </span>
+                  <span key={i} className="dash-pill dash-pill--warning">⚠ {r}</span>
                 ))}
               </div>
             )}
             {weeklyReport.recommendation && (
-              <div style={{ marginTop:10, fontSize:11, color:'var(--dim)', fontFamily:'var(--sans)', padding:'8px 12px', background:'rgba(123,97,255,0.08)', borderRadius:8, borderLeft:`3px solid ${C.accent3}` }}>
-                💡 {weeklyReport.recommendation}
-              </div>
+              <div className="dash-report__reco">💡 {weeklyReport.recommendation}</div>
             )}
           </>
         ) : (
-          <div style={{ fontSize:11, color:'var(--muted)', fontFamily:'var(--mono)' }}>
+          <div className="dash-report__empty">
             No report yet · runs every Monday at 8:00 AM or click "Run Now"
           </div>
         )}
@@ -637,7 +659,6 @@ export default function Dashboard({
           onKeyDown={e => e.key === 'Enter' && sendQuickAi()}
           placeholder='Ask AI: "What should I focus on?" · "Business snapshot" · "Automate more"'
           aria-label="Quick AI question"
-          style={{ flex:1, background:'var(--surface)' }}
         />
         <button className="btn btn--primary" onClick={sendQuickAi} aria-label="Send question to AI">
           Ask AI →
